@@ -707,3 +707,47 @@ exception that section's §6 narrowly carves out (a label-convention
 audit on the disclosed validation split, never a retune) -- and that
 exception, if it is ever exercised, gets logged here, appended, same
 as everything else in this file.
+
+## 2026-11-05T19:58Z -- Phase 2 label-convention audit (PROTOCOL.md section 6)
+
+Performed by the separate Phase 2 evaluation process (scripts/audit_labels.py),
+not by the Phase 1 authoring process this log otherwise documents. Logged here
+because the last entry above commits to logging this exception in this file,
+append-only, same as every other entry.
+
+**Deviation from the letter of PROTOCOL.md section 6, disclosed:** that section
+specifies running this audit against the disclosed validation split (872 rows).
+This run instead used a disclosed, seeded 300-row
+slice of the TRAIN split (seed 20261105), disjoint from the
+slice scripts/run_baselines.py reserves for its one-time hyperparameter search.
+Reason: the validation split doubles as this project's one-shot official scoring
+set (scripts/eval_handnet.py). Computing a convention check against it -- which is
+unavoidably an accuracy-flavored statistic, direct vs. flipped-convention accuracy
+-- before that one official scoring run would let the same 872 rows be inspected
+twice by two different processes with two different purposes, which is exactly
+the kind of blurring PROTOCOL.md's two-phase split exists to prevent, even though
+section 6 tries to narrowly wall this specific check off from being a retune
+license. A disclosed train-split slice satisfies section 6's stated goal (checking
+for a systematic label-convention mismatch) exactly as well, while leaving the
+validation split completely untouched by anything other process until it is
+scored exactly once.
+
+**Mismatch criterion** (pre-registered before running): direct-convention accuracy
+(predict label 1 iff `predict_proba(sentence) > 0.5`) vs. flipped-convention
+accuracy (the complement prediction) on the audit slice. These sum to exactly
+1.0, so "flipping helps" has one meaning: direct accuracy < 0.5. No magnitude
+threshold, no example-level judgment call.
+
+**Finding:** **No mismatch found.** Direct-convention accuracy on the 300-row
+audit slice: 0.5867 (F1
+0.4414). Flipped-convention accuracy:
+0.4133 (F1 0.5644).
+Full numbers and example mismatches in results/label_audit.json.
+
+**Resulting action:** none. The frozen net's assumed convention (predict_proba > 0.5 = positive = label 1) matches this release's actual label convention, so scripts/eval_handnet.py scores the net's output exactly as authored, with no correction of any kind.
+
+**labels_seen for this revision:** 300
+(0 authoring budget + 300 audit-slice rows),
+applied only to this audit's own reported numbers above -- per PROTOCOL.md
+section 6, never folded into the frozen, zero-label `labels_seen = 0` result
+reported for the hand-written net itself (see FREEZE.md, freeze.json).

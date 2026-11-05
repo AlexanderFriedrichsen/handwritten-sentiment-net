@@ -1,0 +1,126 @@
+{
+  "deviation_from_protocol": "PROTOCOL.md section 6 specifies auditing against the disclosed validation split (872 rows). This audit instead uses a disclosed, seeded slice of the TRAIN split, to avoid computing an accuracy-flavored statistic against the validation split before it is used for the one official scoring run. See this script's module docstring and authoring/RATIONALE.md for the full reasoning.",
+  "audit_slice": {
+    "source_split": "train",
+    "slice_size": 300,
+    "seed": 20261105,
+    "disjoint_from_tune_slice_size": 3000,
+    "construction": "scripts.eval_common.reserve_slices -- first AUDIT_SLICE_SIZE rows of a seeded permutation of all TRAIN row indices"
+  },
+  "mismatch_criterion": "mismatch_found = (direct-convention accuracy on the audit slice) < 0.5 -- pre-registered, no magnitude threshold, no example cherry-picking",
+  "mismatch_found": false,
+  "direct_convention": {
+    "description": "predict label 1 (positive) iff predict_proba(sentence) > 0.5, as the frozen net's forward pass was authored to assume",
+    "n": 300,
+    "accuracy": 0.5866666666666667,
+    "precision": 0.8305084745762712,
+    "recall": 0.3006134969325153,
+    "f1": 0.44144144144144143,
+    "confusion_matrix": [
+      [
+        127,
+        10
+      ],
+      [
+        114,
+        49
+      ]
+    ]
+  },
+  "flipped_convention": {
+    "description": "complement of the direct prediction -- what accuracy would be if label 1 actually meant negative in this release",
+    "n": 300,
+    "accuracy": 0.41333333333333333,
+    "precision": 0.4730290456431535,
+    "recall": 0.6993865030674846,
+    "f1": 0.5643564356435643,
+    "confusion_matrix": [
+      [
+        10,
+        127
+      ],
+      [
+        49,
+        114
+      ]
+    ]
+  },
+  "direct_mismatch_examples": [
+    {
+      "row": 5,
+      "sentence": "far from heaven is a dazzling conceptual feat , but more than that , it 's a work of enthralling drama . ",
+      "true_label": 1,
+      "predicted_label": 0,
+      "predict_proba": 0.4808
+    },
+    {
+      "row": 21,
+      "sentence": "is this films reason for being . ",
+      "true_label": 1,
+      "predicted_label": 0,
+      "predict_proba": 0.4547
+    },
+    {
+      "row": 22,
+      "sentence": "leave feeling as shaken as nesbitt 's cooper looks when the bullets stop flying ",
+      "true_label": 1,
+      "predicted_label": 0,
+      "predict_proba": 0.4415
+    },
+    {
+      "row": 24,
+      "sentence": "to share his story so compellingly with us is a minor miracle ",
+      "true_label": 1,
+      "predicted_label": 0,
+      "predict_proba": 0.4964
+    },
+    {
+      "row": 25,
+      "sentence": "'re as happy listening to movies as you are watching them , and the slow parade of human frailty fascinates you ",
+      "true_label": 1,
+      "predicted_label": 0,
+      "predict_proba": 0.4374
+    },
+    {
+      "row": 28,
+      "sentence": "the most entertaining bonds in years ",
+      "true_label": 1,
+      "predicted_label": 0,
+      "predict_proba": 0.4982
+    },
+    {
+      "row": 29,
+      "sentence": "coordinated ",
+      "true_label": 1,
+      "predicted_label": 0,
+      "predict_proba": 0.469
+    },
+    {
+      "row": 38,
+      "sentence": "knows how to make our imagination wonder . ",
+      "true_label": 1,
+      "predicted_label": 0,
+      "predict_proba": 0.4526
+    },
+    {
+      "row": 39,
+      "sentence": "think most of the people who loved the 1989 paradiso will prefer this new version ",
+      "true_label": 1,
+      "predicted_label": 0,
+      "predict_proba": 0.4614
+    },
+    {
+      "row": 43,
+      "sentence": "'s the image that really tells the tale ",
+      "true_label": 1,
+      "predicted_label": 0,
+      "predict_proba": 0.4565
+    }
+  ],
+  "labels_seen_this_revision": {
+    "authoring_budget": 0,
+    "audit_slice_size": 300,
+    "total": 300,
+    "note": "Applies only to this audit's own reported numbers. Per PROTOCOL.md section 6, this is never folded into the frozen, zero-label labels_seen=0 result for the hand-written net itself."
+  }
+}
