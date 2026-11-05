@@ -1,0 +1,141 @@
+# Closed-class structural word lists. Hand-authored, label-free: membership
+# and (for degree_modifiers/certainty) numeric strength are my own judgment
+# about English grammar/usage, not computed from this dataset in any way.
+# Compiled into embedding columns is_negator / is_contrast / degree_modifier
+# / certainty / content_negator by scripts/compile_weights.py.
+#
+# A word absent from every section below simply gets 0 in all five of
+# these columns; it may still get a `valence` entry in lexicon.yaml.
+
+# Pure function words that trigger a forward negation-scope window in the
+# encoder (handnet/encode.py). Excluded from the plain/negated/modified
+# buckets themselves -- they carry no sentiment of their own, only
+# structural effect. "yet" deliberately omitted: too often co-occurs as
+# "not yet" (has n't been released yet / not yet rated), where treating it
+# as a second clause-splitting marker would sever negation scope from the
+# word it governs. Treated instead as an ordinary near-neutral vocab word.
+negators:
+  - not
+  - "n't"
+  - no
+  - never
+  - nobody
+  - nothing
+  - neither
+  - nor
+  - without
+  - none
+  - nowhere
+
+# Words that trigger the clause split (pre vs. post) in the encoder, with
+# the post-clause weighted to dominate at fusion. "while" is kept despite
+# its temporal/contrastive ambiguity ("while watching" vs. "while the lead
+# is strong, the script is weak") because the contrastive sense dominates
+# in film-critique register and the cost of a rare mis-split is small.
+contrast_markers:
+  - but
+  - however
+  - although
+  - though
+  - while
+  - despite
+  - except
+  - nonetheless
+  - nevertheless
+  - whereas
+  - albeit
+
+# degree_modifier value: >1 amplifies the following content word's
+# contribution, <1 damps it, 0 (absent) = inert. One unified scale because
+# intensification and diminishment are the same phenomenon at opposite
+# ends, not two categories.
+#
+# Strong intensifiers (near-maximal amplification: these words are used
+# specifically to signal an extreme/absolute degree):
+degree_modifiers:
+  utterly: 2.2
+  absolutely: 2.1
+  incredibly: 2.0
+  enormously: 2.0
+  immensely: 2.0
+  wildly: 1.9
+  completely: 1.9
+  thoroughly: 1.8
+  truly: 1.8
+  amazingly: 1.8
+  totally: 1.8
+  deeply: 1.7
+  highly: 1.7
+  remarkably: 1.7
+  very: 1.6
+  too: 1.5          # see RATIONALE.md for the "too" simplification note
+  especially: 1.5
+  particularly: 1.5
+  so: 1.4
+  really: 1.4
+  surprisingly: 1.3  # weaker than the others: often flags a reversal of
+                      # expectation more than raw degree ("surprisingly
+                      # good" boosts less than "incredibly good")
+  # Diminishers (damp the following word toward neutral):
+  fairly: 0.6
+  rather: 0.6
+  relatively: 0.6
+  somewhat: 0.55
+  kind: 0.5          # "kind of" -- also has its own small positive
+                      # valence for the literal kind-hearted sense in
+                      # lexicon.yaml; sense-collision accepted, see
+                      # RATIONALE.md.
+  sort: 0.5           # "sort of"
+  bit: 0.45            # "a bit" -- "bit part" (minor role) sense collision
+                        # accepted, see RATIONALE.md.
+  mildly: 0.4
+  slightly: 0.35
+  barely: 0.15         # near-negation but kept distinct from `negators`:
+  hardly: 0.15          # "barely good" is not as negative as "not good".
+  scarcely: 0.15
+
+# certainty value: positive = assertive/confident marking, negative =
+# hedge/uncertainty marking. Independent of valence and of degree_modifier
+# -- confidence-in-the-claim is a different axis from strength-of-the-
+# claim ("seems very good" hedges a strong claim; "clearly fine" asserts a
+# weak one).
+certainty:
+  undoubtedly: 0.85
+  definitely: 0.8
+  certainly: 0.8
+  clearly: 0.7
+  obviously: 0.7
+  surely: 0.7
+  plainly: 0.6
+  maybe: -0.8
+  supposedly: -0.75
+  perhaps: -0.7
+  seems: -0.6
+  seem: -0.6
+  possibly: -0.6
+  apparently: -0.5
+  probably: -0.3
+
+# Content words whose own meaning denotes absence/failure, i.e. they act
+# a little like a negator even though they are ordinary content words with
+# their own `valence` entry in lexicon.yaml. No structural
+# negation-propagation was built for this column in v1 (a real negator
+# like "lacks" does not flip the valence of a following word the way
+# "not" does) -- it is only an extra pooled signal the composition layer
+# (`semantic_negation_signal`) can use. "miss"/"misses" are included on
+# the judgment that the "fails to achieve/hit" sense dominates in
+# film-critique register over the "fondly long for" sense; documented as
+# an accepted ambiguity.
+content_negators:
+  - lack
+  - lacks
+  - lacking
+  - fail
+  - fails
+  - failing
+  - missing
+  - miss
+  - misses
+  - devoid
+  - absence
+  - void

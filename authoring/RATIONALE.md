@@ -185,3 +185,67 @@ extra pooled flag; (d) `degree_modifier` only looks one token back
 degree_modifier contribution on the first "very" as if it were itself a
 content token -- a minor mis-bucketing for stacked intensifiers, accepted
 rather than special-cased).
+
+## 2026-11-05T18:18Z -- Closed-class structural words (authoring/structural_words.yaml)
+
+Checked every candidate function word against `vocab/vocab.json` first;
+84 of 85 candidates are present at train frequency >= 2 (only "presumably"
+is absent, so it is simply omitted -- it will fall back to UNK-like
+all-zero treatment via no lexicon entry).
+
+Non-obvious calls, logged individually per rule 5 of the brief:
+
+- **"yet" excluded from `contrast_markers`** despite being a textbook
+  contrast word, because SST-2 movie-review text frequently contains
+  "not yet" (not yet rated / has n't been released yet). If "yet" also
+  triggered a clause split, it would sever the negated word from its
+  negator's scope in exactly the construction where getting negation
+  right matters most. Kept as an ordinary nearly-neutral vocabulary word
+  instead of a structural marker. This is a deliberate asymmetry: "but"
+  essentially never co-occurs with "not" in a way that breaks negation
+  scope, "yet" commonly does.
+- **"while" kept** as a contrast marker despite being genuinely ambiguous
+  between temporal ("while watching") and concessive ("while the lead is
+  strong, the script is weak") senses, because the concessive sense
+  dominates in critical-review register and a rare mis-split costs little
+  (the pre/post split just lands in a slightly odd place, it does not
+  flip a sign).
+- **"too" treated as a plain amplifier** (degree_modifier=1.5), same
+  family as "very", even though "too" carries an independent connotation
+  of excess that can read as mildly negative regardless of the word it
+  modifies ("too clever", "too long"). Capturing that would need "too" to
+  carry its own small negative bias independent of what it modifies --
+  a genuine extra mechanism, not just a weight value. Decided against
+  adding a one-word special case; logged as a known gap rather than
+  silently folded into a generic amplifier value.
+- **"barely"/"hardly"/"scarcely" placed in `degree_modifiers` at 0.15**,
+  not in `negators`, on the judgment that "barely enjoyable" still reads
+  as weakly positive-leaning, not as negative as "not enjoyable" -- they
+  dampen toward near-zero rather than flipping sign. This is a real,
+  deliberate distinction from the `negators` list, not an oversight.
+- **"kind"/"sort"/"bit" used as diminishers** ("kind of boring") at
+  ~0.45-0.5, fully aware each also has an unrelated literal sense ("a kind
+  person", "what sort of film", "a bit part") that a word-level (not a
+  word-sense-level) model cannot distinguish. "kind" additionally gets a
+  small positive `valence` in lexicon.yaml for its literal sense; the
+  resulting sense-collision is accepted as a known limitation of
+  bag-of-words-style encoding rather than hidden.
+- **certainty is kept fully independent of valence and of
+  degree_modifier**: "seems very good" should hedge a strong claim, and
+  "clearly fine" should assert a weak one. Collapsing certainty into
+  degree_modifier would make hedges act identically to diminishers, which
+  they are not (a diminisher weakens the sentiment itself; a hedge
+  weakens confidence in an otherwise-unweakened sentiment).
+- **content_negators ("lack", "fail", "devoid"...) given no structural
+  negation mechanism in v1** -- a real negator ("not") flips the bucket of
+  a following content word; these words do not, they only set a pooled
+  flag the composition layer can read as `semantic_negation_signal`. The
+  alternative (treating "lacks" as a mini-negator that opens its own scope
+  window) is a reasonable future extension but was deliberately deferred
+  rather than rushed in: getting negator-opening logic right for a second,
+  weaker class of trigger words adds real room for a wiring bug under time
+  pressure, which is exactly the kind of mistake rule 4 (fix bugs, never
+  retune values) is meant to make leaving-well-enough-alone the safer
+  default. "miss"/"misses" included on the judgment that film-critique
+  register favors the "fails to achieve/land" sense over "fondly long
+  for"; logged as an accepted ambiguity rather than a confident claim.
