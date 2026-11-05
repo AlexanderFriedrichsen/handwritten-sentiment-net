@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+
+# Raw dataset is never committed. The fetch script writes a sentence-only
+# text file here and deletes the source parquet immediately after reading
+# it with a column projection that never touches the label column. See
+# scripts/fetch_sst2.py and PROTOCOL.md.
+data/
+!data/.gitkeep

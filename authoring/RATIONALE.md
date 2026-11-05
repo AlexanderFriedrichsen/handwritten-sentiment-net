@@ -1,0 +1,187 @@
+# Rationale log
+
+Contemporaneous log of design and weight-authoring decisions, in the order
+they were made. Appended-to as authoring proceeds; never rewritten after
+the fact. Timestamps are UTC. This file is the auditable answer to "was it
+one-shot or hill climbing?" (see report.md section 1) -- every weight-group
+decision below was made before any weight value was fit, searched for, or
+checked against output, and before any label was read.
+
+---
+
+## 2026-11-05T18:10Z -- Benchmark and integrity posture (inherited)
+
+Benchmark is SST-2, per the standing protocol report
+(`/home/alexp/.firstmate/data/handnet-fuzzy-pick/report.md`, sections 3-4).
+This repo's brief is stricter than that report on one point and I am
+following the brief: no external sentiment lexicon (AFINN/VADER/Hu-Liu/
+SentiWordNet/etc.) is used as a source of any weight or word score, even
+though report section 4.1 would have allowed it. Every valence, intensity,
+and structural-word judgment below is my own semantic judgment, formed by
+reasoning about the word/construction directly, not copied or derived from
+any lexicon file, dataset statistic, or label.
+
+## 2026-11-05T18:12Z -- Data fetch design
+
+`scripts/fetch_sst2.py` downloads only the official `stanfordnlp/sst2`
+TRAIN parquet (verified by HEAD request to resolve to a real file before
+use), reads it with `pandas.read_parquet(path, columns=["sentence"])` so
+pyarrow never decodes the `label` column's data pages, then deletes the
+downloaded parquet immediately after that single read. Only the derived
+`data/train_sentences.txt` (sentence text, one per line) persists, and
+`data/` is gitignored. Validation and test splits are never requested. The
+HF dataset *viewer* web page was never opened; only the documented resolve
+URL pattern for the train parquet file was fetched directly. Result: 67,349
+sentences, matching the train split size documented in the protocol report
+exactly -- a sanity check that the right file was fetched, not a label
+check (row count only, no label value was read to produce this count).
+
+## 2026-11-05T18:14Z -- Tokenization
+
+Inspected the raw sentence text (first 20 lines) and confirmed SST-2 is
+already PTB-tokenized: lowercase, punctuation split into its own tokens
+("," "." "n't" "'s" backtick/quote, "--"), hyphenated compounds kept whole.
+Decision: tokenizer is a plain `.strip().lower().split()` -- no regex
+needed, no judgment call, purely mechanical (`handnet/tokenize.py`). Shared
+identically between vocabulary construction and the encoder so the two can
+never drift apart.
+
+## 2026-11-05T18:15Z -- Vocabulary construction
+
+Computed token frequency over the unlabeled train sentences only (no label
+anywhere in this computation). 14,816 unique types across 633,724 tokens
+in 67,349 sentences. Decision: keep every token with train frequency >= 2
+(14,309 types), plus one reserved `<UNK>` row (index 0) for anything not
+seen at authoring time (e.g. a word introduced only in val/test, or any
+true hapax). Frequency >= 2 rather than a fixed top-K: it is equally a
+"top-K frequent tokens" rule per report 4.3, just expressed as a frequency
+floor, and it is well-motivated on its own terms -- it keeps 96.6% of the
+observed vocabulary (excluding only the 507 word-types seen exactly once,
+which are dominated by typos, rare proper nouns, and one-off compounds not
+worth a dedicated row) while avoiding a vocabulary size chosen to hit a
+param-count target. `scripts/build_vocab.py` is the sole, deterministic,
+mechanical producer of `vocab/vocab.json`, which is committed (it is a
+frequency statistic over unlabeled text, not the dataset itself; the raw
+sentence file remains gitignored).
+
+## 2026-11-05T18:18Z -- Network architecture (fixed before any weight value)
+
+Full design below is fixed now, before a single weight is written, so the
+weight-authoring that follows is filling in a predetermined structure, not
+shaping the structure around a result.
+
+**Encoder** (`handnet/encode.py`, mechanical/structural only -- no sentiment
+judgment lives here, only closed-class word-list membership and positional
+logic that is identical regardless of what any word's sentiment is):
+
+1. Tokenize (above).
+2. Map each token to a vocab row (or UNK).
+3. Clause split: scan for the first occurrence of a closed-class contrast
+   marker (but/however/although/though/yet/while/despite/except/
+   nonetheless/nevertheless/whereas/albeit). Tokens before it are the "pre"
+   clause; the marker and everything after are the "post" clause (the
+   marker token itself is excluded from word buckets but counted in a
+   `has_contrast` flag). No contrast marker -> everything is "pre", "post"
+   is empty. Only the first marker is used if more than one appears
+   (documented simplification).
+4. Negation scope: scanning left-to-right, a closed-class negator
+   (not/n't/no/never/nobody/nothing/neither/nor/without/none/nowhere)
+   opens a fixed forward window of SCOPE_WINDOW=4 tokens (counting every
+   token, content or function, in that window); scope resets early on a
+   clause boundary or on strong punctuation (. ! ? ; :). This is the
+   standard negation-scope heuristic from the sentiment-analysis
+   preprocessing literature (e.g. Pang & Lee 2002's "append _NEG within
+   scope of negation"), applied uniformly and mechanically -- it is a
+   structural rule about negator position, identical for every sentence,
+   fixed before any weight exists, and computed over unlabeled text only.
+5. Each non-function content token is assigned to exactly one of 3 buckets
+   per clause -- plain / negated / modified -- modified meaning the token
+   is immediately preceded by a closed-class degree-modifier word (see
+   below) and not negated. Negators and contrast markers themselves are
+   excluded from these buckets (they are function words, counted via flags
+   instead).
+6. Each clause x bucket (6 combinations) pools the embedding rows of its
+   member tokens by SUM, then divides by sentence length (average, not sum
+   pooling) so longer sentences do not automatically produce larger-
+   magnitude scores purely from token count. This is a standard pooling
+   normalization choice, not a sentiment judgment.
+7. Encoder emits: 6 pooled 7-dim vectors (42 numbers) + 7 sentence-level
+   structural scalars (has_contrast, pre_len_frac, post_len_frac,
+   num_negators, has_exclaim, has_question, sentence_length) = 49 numbers.
+
+**Per-word embedding table** `E`, shape (14310, 7). Columns, each an
+independent, separately-justified semantic axis (rationale for *why these
+7* axes, not yet the per-word values, which follow in later entries):
+
+0. `valence` in [-3,3]: core sentiment polarity and strength, combined into
+   one signed number (sign = direction, magnitude = strength) rather than
+   two separate numbers, because I never need sign and magnitude addressed
+   independently anywhere downstream -- only their product ever gets used.
+1. `negation_sensitivity` in [0,1]: what fraction of a word's valence
+   actually inverts under negation, vs. being merely neutralized. Motivated
+   by this being genuinely non-uniform: "not good" reads as mildly-to-
+   moderately negative (good negates fairly cleanly -- high sensitivity),
+   but "not perfect" or "not amazing" reads as closer to lukewarm/neutral
+   than to "terrible" (extreme/absolute words negate poorly -- low
+   sensitivity). This is exactly the compositional phenomenon SST-2 was
+   built to require (report section 3.1) and is not expressible as a
+   single valence number alone. Set only where valence != 0.
+2. `is_negator` in {0,1}: closed-class flag (the ~11 words listed above).
+3. `is_contrast` in {0,1}: closed-class flag (the ~12 words listed above).
+4. `degree_modifier` in [0, 2.5], 0 = not a degree word: unifies
+   intensifiers and diminishers into one axis (>1 amplifies, <1 damps,
+   0 = inert) since they are the same linguistic phenomenon at opposite
+   ends of one scale, not two unrelated categories.
+5. `certainty` in [-1,1]: hedge (seems/maybe/somewhat-as-hedge/apparently,
+   negative) vs. assertive (clearly/definitely/undoubtedly, positive)
+   marking. Deliberately separate from valence: "seems good" and "is good"
+   differ in confidence, not in polarity, and SST-2's phrase-level
+   compositional design (report 3.1) rewards exactly this kind of
+   independent axis rather than folding everything into one sentiment
+   number.
+6. `content_negator` in {0,1}: content words whose own meaning is an
+   absence/failure (lack, fails, missing, devoid, absence...) -- flagged
+   separately from `valence` (which they also get, as ordinary negative
+   content words) purely as an additional pooled signal the composition
+   layer can use; no structural negation-propagation mechanism was built
+   for this column in v1 (documented limitation, see the entry at the end
+   of this section).
+
+**Composition layer 1** (Linear(49 -> 12) + tanh), 12 named hidden units,
+each hand-set to read only the handful of the 49 inputs it is semantically
+about (the rest of that unit's weight row is 0): `plain_sentiment_pre`,
+`negated_sentiment_pre`, `modified_sentiment_pre`, `plain_sentiment_post`,
+`negated_sentiment_post`, `modified_sentiment_post`, `semantic_negation_
+signal`, `certainty_signal`, `emphasis_signal`, `negation_density_signal`,
+`question_discount_signal`, `pre_post_length_signal`.
+
+**Composition layer 2 / fusion** (12 units + raw `has_contrast` skip input
+-> 1 raw score): pre/post clause totals are combined with a contrast gate,
+`pre_weight = 1 - has_contrast*(1-ALPHA)`, `post_weight = has_contrast*BETA`
+-- when there is no "but", pre_weight=1 and post_weight=0 (post is empty
+anyway); when there is, the post-clause is weighted to dominate
+(ALPHA<1<BETA). This is the discourse-structure claim "X but Y" is
+semantically dominated by Y, and it is implemented as plain arithmetic on a
+0/1 structural flag (a gate, the same mechanism an LSTM/GRU forget-gate
+uses), not a per-example branch.
+
+**Output layer**: `logit = raw_score * output_scale + output_bias`,
+`p = sigmoid(logit)`.
+
+Total parameter budget: embedding 14310*7 = 100,170, composition layer 1
+weights 49*12+12 = 600, fusion/output ~16 => ~100,786 total, matching the
+brief's "order of 100k" target without padding -- every one of the 7
+embedding columns and all 12 composition units is independently motivated
+above, not sized to hit a number.
+
+**Known v1 simplifications, stated honestly rather than hidden**: (a) only
+the first contrast marker in a sentence is used for clause-splitting; (b)
+negation scope is a fixed 4-token window for every negator rather than a
+per-negator reach; (c) `content_negator` words do not structurally negate
+a following word the way a real negator does, they only contribute an
+extra pooled flag; (d) `degree_modifier` only looks one token back
+(immediate adjacency), it does not handle "very, very good" stacking beyond
+2 tokens specially (the second "very" simply also fires its own
+degree_modifier contribution on the first "very" as if it were itself a
+content token -- a minor mis-bucketing for stacked intensifiers, accepted
+rather than special-cased).
