@@ -611,3 +611,57 @@ count unchanged at ~100,786; the "thousands of non-zero weights" target
 was already cleared by the lexicon and structural-word tables alone
 (entry above), so this layer's deliberate sparsity is a feature, not a
 shortfall.
+
+## 2026-11-05T19:25Z -- Encoder, compiler, forward pass, and mechanism tests (no weight changed)
+
+Implemented the code that turns the already-frozen-in-design-terms
+authoring/*.yaml files into a runnable net: `handnet/columns.py` and
+`handnet/units.py` (shared index/name constants, extracted so the
+compiler, encoder, and forward pass can't silently drift against each
+other), `handnet/encode.py` (the label-free sentence encoder: tokenize,
+vocab lookup, clause split, negation-scope window, bucket assignment,
+pool), `scripts/compile_weights.py` (mechanically assembles the
+authored YAML + vocab into `weights/weights.npz` -- no judgment of its
+own, same relationship to its inputs as `scripts/expand_lexicon.py`),
+and `handnet/net.py` (the numpy forward pass: `composition_1` ->
+`fuse` -> output). None of this is a new judgment call; all of it is
+"implement the mechanism the 18:18Z/19:15Z entries already fixed," so
+it required no new RATIONALE entry for a weight value -- this entry
+documents the implementation itself, since rule 5 asks for a
+contemporaneous log of the authoring *process*, not just weight
+values.
+
+**One mechanical decision not literally spelled out before now**: what
+happens when a second `is_contrast` token appears after the clause
+split (e.g. "good but bad, though still watchable"). Decided: it does
+not trigger a second split (the architecture has exactly one pre/post
+boundary), but it still resets an open negation-scope window, like any
+other contrast marker -- a discourse pivot word closes a negation
+window wherever it appears, consistent with the single-split design's
+own spirit rather than a new judgment call about any word's valence.
+Implemented in `handnet/encode.py`'s `_negation_scope`.
+
+**Testing discipline (rule 4)**: `tests/test_compile_weights.py`,
+`tests/test_encode.py`, and `tests/test_net.py` (27 tests total) check
+the compiled artifact and the encoder/forward-pass code against
+hand-computed expected values derived from the formulas above --
+shapes, the dead-index invariant, the redefined-column product
+formula, the fusion gate's two cases, sigmoid-of-logit consistency.
+None of them runs the net on a sentence to judge whether the output
+"looks right" for that sentence's sentiment, and none reports or
+depends on an accuracy figure. All 27 passed on first run; no test
+ever failed, so rule 4's "a failing test may only fix an
+implementation bug, never retune a weight" never had occasion to
+apply this round -- nothing in authoring/*.yaml changed.
+
+**Lint**: no linter is in `requirements.txt` and the project targets
+minimal dependencies, so no new linter was installed. Checked instead
+with `python -m py_compile` (syntax) and a manual pass, which caught
+two real issues fixed before commit: `handnet/units.py` had a dead
+`from handnet.columns import DEGREE_MODIFIER, NEGATION_SENSITIVITY`
+import backing two never-referenced tuples (removed, no behavior
+change -- confirmed nothing else in the codebase referenced them);
+`tests/test_encode.py` imported `N_EMBED_COLS` from `handnet.units`,
+which only worked because `units.py` happens to import that name from
+`handnet.columns` for its own internal use -- fixed the test to import
+it from `handnet.columns`, its actual home.
