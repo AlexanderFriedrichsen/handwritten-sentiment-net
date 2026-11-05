@@ -364,3 +364,55 @@ real words absent from the frequency-floor vocabulary, not authoring
 errors, and adding them would require changing `vocab.json`'s frequency
 floor -- out of scope for this pass and not motivated by any actual
 deficit in the covered vocabulary.
+
+## 2026-11-05T18:52Z -- content_negators lexicon gap (authoring/lexicon_families.py)
+
+`structural_words.yaml`'s `content_negators` comment made the same kind
+of promise the `kind` comment did (see the bug list above): it says
+these words are "ordinary content words with their own valence entry in
+lexicon.yaml" too, not just a structural flag. Checked and found that
+promise only half-kept -- of the 12 content_negators (lack, lacks,
+lacking, fail, fails, failing, missing, miss, misses, devoid, absence,
+void), only `fail`/`fails`/`failing` actually had a lexicon.yaml entry
+(-1.3, 0.7, from the pre-existing STRONG_NEGATIVE family). Added a new
+`GAP_FILL_CONTENT_NEGATORS` family giving the other 9 their own valence:
+`lack`/`lacks`/`lacking` at -1.0/0.6, `missing`/`miss`/`misses` at
+-0.8/0.65 (judgment: the "fails to land/achieve" sense dominates in
+film-critique register over "fondly long for" -- accepted ambiguity,
+same call `structural_words.yaml` already documents for this word),
+`devoid` at -1.1/0.5, `absence` at -0.6/0.6, `void` at -0.9/0.6 (the "void
+of" sense). This is authoring new valence for words that already had
+zero in lexicon.yaml, not retuning an existing value, so it is ordinary
+authoring work, not a rule-4 post-test change.
+
+`expand_lexicon.py`'s conflict check caught the obvious overlap: a first
+draft of this family included `fail`/`fails`/`failing` at -1.2/0.6,
+duplicating the pre-existing -1.3/0.7 STRONG_NEGATIVE entry with a
+different value. Fixed by dropping the three duplicate forms from the
+new family (left a comment pointing at the original), not by changing
+either value -- the project's standing practice of never retuning an
+already-authored value without cause.
+
+**Re-run result**: 656 families, 1010 matched forms, 1010 distinct
+lexicon words (up from 651/1001/1001), zero new conflicts, same 316
+unmatched forms as before (the 9 unmatched forms this family's other
+words would have added are forms I didn't draft, not new misses).
+
+**Correction to the batch-2 entry above**: it wrote "12 content_negators
+(7 of which deliberately collide with a lexicon.yaml word)". That
+parenthetical conflated two different overlaps -- the real count of
+content_negators with a lexicon valence at that time was 3
+(fail/fails/failing), not 7; the other 4 were unrelated
+degree_modifier/lexicon collisions (kind, amazingly, incredibly,
+remarkably) that happen to sum to 7 when added to the 3. Recording the
+correction here rather than editing that entry, since this log is
+append-only and contemporaneous by design. All 12 content_negators now
+have a lexicon valence, so the distinction is moot going forward:
+recomputed directly (not by hand-arithmetic, to avoid repeating the same
+kind of error) -- lexicon.yaml now has 1010 distinct words,
+structural_words.yaml's five weighted/flagged lists (negators,
+contrast_markers, degree_modifiers, certainty, content_negators) have 89
+distinct words, 16 of those also carry a lexicon valence, so 1083
+distinct words carry at least one hand-authored nonzero weight -- the
+same combined total as before by coincidence (each newly-dual-purpose
+word was already counted on the structural side).

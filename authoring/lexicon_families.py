@@ -794,6 +794,23 @@ GAP_FILL_MISC_SMALL = [
     (["liked", "likes"], 0.7, 0.75, "bare 'like' excluded: too overloaded with the similarity preposition ('like a conspiracy'); the inflected forms here are unambiguously the verb"),
 ]
 
+# content_negators also appear structurally in structural_words.yaml (they
+# get a `content_negator` embedding-table flag there), but that file's own
+# comment is explicit that they are "ordinary content words with their own
+# valence entry in lexicon.yaml" too -- this family fulfills that promise,
+# which had been written but never actually completed. Needed so that an
+# unnegated occurrence ("the film lacks energy") still contributes sentiment
+# through its own valence, not only through the separate structural flag.
+GAP_FILL_CONTENT_NEGATORS = [
+    (["lack", "lacks", "lacking"], -1.0, 0.6, None),
+    # fail/fails/failing/failed already covered by the STRONG_NEGATIVE
+    # family above (-1.3, 0.7); not duplicated here.
+    (["missing", "miss", "misses"], -0.8, 0.65, "'fails to land' sense, see structural_words.yaml note on the ambiguity with 'fondly long for'"),
+    (["devoid"], -1.1, 0.5, None),
+    (["absence"], -0.6, 0.6, None),
+    (["void"], -0.9, 0.6, "'void of' sense"),
+]
+
 # ---------------------------------------------------------------------------
 # FAMILIES combines every tier above into one list the expander consumes.
 # ---------------------------------------------------------------------------
@@ -817,5 +834,6 @@ FAMILIES = (
     + GAP_FILL_MILD_NEGATIVE_2
     + GAP_FILL_PLAIN_NEGATIVE_2
     + GAP_FILL_MISC_SMALL
+    + GAP_FILL_CONTENT_NEGATORS
 )
 
