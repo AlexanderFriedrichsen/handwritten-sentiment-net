@@ -1,0 +1,30 @@
+{
+  "split": "validation",
+  "n_rows": 872,
+  "labels_seen": {
+    "value": 0,
+    "note": "The frozen net never saw a label during authoring (see FREEZE.md, freeze.json) -- this is the headline zero-label result. Computing accuracy/F1 below necessarily reads this split's 872 labels for scoring, exactly as every baseline's own final metric reads its scored split; that label-reading-for-scoring is not what `labels_seen` tracks across this project (model/weight-influencing label exposure -- training, tuning, selection). See scripts/run_baselines.py and RESULTS.md for the baselines' own labels_seen accounting, which is nonzero by construction."
+  },
+  "label_convention": {
+    "mismatch_found_by_audit": false,
+    "correction_applied": "none",
+    "source": "results/label_audit.json, authoring/RATIONALE.md"
+  },
+  "metrics": {
+    "n": 872,
+    "accuracy": 0.5103211009174312,
+    "precision": 0.546448087431694,
+    "recall": 0.22522522522522523,
+    "f1": 0.3189792663476874,
+    "confusion_matrix": [
+      [
+        345,
+        83
+      ],
+      [
+        344,
+        100
+      ]
+    ]
+  }
+}
