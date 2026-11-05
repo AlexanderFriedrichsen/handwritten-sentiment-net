@@ -249,3 +249,118 @@ Non-obvious calls, logged individually per rule 5 of the brief:
   default. "miss"/"misses" included on the judgment that film-critique
   register favors the "fails to achieve/land" sense over "fondly long
   for"; logged as an accepted ambiguity rather than a confident claim.
+
+## 2026-11-05T18:39Z -- Content-word lexicon (authoring/lexicon_families.py)
+
+Authored per-word sentiment valence for content words as lemma families:
+one judgment call per concept (e.g. "brilliant"), fanned out mechanically
+to its real inflections ("brilliantly", "brilliance") that are actually
+present in the vocabulary. A family is
+`(forms, valence, sensitivity_or_None, note_or_None)`. `valence` is my own
+judgment of polarity/strength in film-review register, anchored to a tier
+scale I designed for internal consistency (+-3.0 superlative down to
++-0.2 bare) -- not copied from any external lexicon's scale (rule 3).
+`sensitivity` encodes how cleanly "not <word>" negates the word: low for
+extreme/absolute words ("not perfect" reads as merely imperfect, not bad),
+high for plain gradable words ("not good" cleanly flips). Defaults to 0.7
+when a family does not override it.
+
+`scripts/expand_lexicon.py` mechanically expands every family against
+`vocab/vocab.json`, flattens to one `word -> {valence, sensitivity}` dict,
+and writes `authoring/lexicon.yaml`. The script carries zero judgment of
+its own -- it only matches surface forms and fails loudly
+(`sys.exit(1)`) if two families claim different valence for the same
+word. This mirrors the existing `build_vocab.py` -> `vocab.json` split
+between a hand-authored source and a mechanically-derived artifact.
+
+**Authoring-time bugs caught before any run** (rule 4 allows fixing these;
+none involved running the net or looking at any output):
+- A bogus literal form `"fairly_as_adj"` (not a real word) in an early
+  `fair` family, caught on review and fixed to `["fair"]` with a note
+  distinguishing it from the unrelated `fairly` degree_modifier.
+- `structural_words.yaml`'s `kind` comment promised a lexicon.yaml entry
+  for the kind-hearted sense that had never actually been written; added
+  `(["kind", "kindly", "kindness"], 0.6, 0.8, ...)` to fulfill it.
+- Drafting batch 2 (below) left several dead placeholder tuples in the
+  file with names like `"realistic_dup_removed"`, `"crass_dup_removed"`,
+  `"suffering_as_verb"`, `"like_as_verb"` -- markers I used while
+  consolidating duplicate-across-list notes into code, never cleaned up.
+  Caught by grepping for `_dup_removed|_as_adj|_as_verb` before the first
+  run on the new batch and removed; real forms that had been bundled into
+  the same tuples (e.g. "suffered", "liked", "likes") were kept.
+
+**First run** (batch 1, hand-recalled words without checking the
+vocabulary first): 416 families, 675 matched forms, 675 distinct words,
+258 unmatched forms, 28 zero-match families -- a ~72% hit rate against
+the real vocabulary, since guessing inflected forms from memory without
+checking which ones actually survive the frequency floor (`MIN_FREQ=2`
+in `build_vocab.py`) is inherently lossy. The conflict check also caught
+4 real authoring duplicates (same word, two different valences, from
+independently-drafted tier lists: "triumphs/triumph", "glorious", a
+"resplendent" merge, "touching") -- fixed by merging/removing the
+redundant lines, not by changing any value a test or run had flagged.
+
+675 distinct words is short of a comfortable "thousands of non-zero
+weights" claim. The deficit is lexicon breadth (words I have not
+authored yet), not vocabulary size -- `vocab.json` was already built
+label-free from real training-sentence frequency, so shrinking the
+frequency floor to manufacture more vocabulary entries would be an
+unmotivated change in the wrong direction. Chose instead to find more
+real words to author.
+
+**Gap-check methodology (batch 2)**: computed
+`vocab_words - (lexicon_words | structural_words)`, sorted by descending
+train frequency (both sets and the frequency numbers were already
+computed label-free, by code committed before this entry), and read
+through the result by hand to find genuine sentiment-bearing words I had
+missed. This is explicitly NOT output-driven tuning under rule 4: no
+label is consulted, no model prediction is consulted, no model of any
+kind runs at any point in this process. The only two inputs are (a) the
+set of words already in my own authored files and (b) a raw unlabeled
+word-frequency count -- both already-committed, non-label artifacts. The
+check only tells me which real words exist to make a judgment call about;
+it never tells me what judgment to make.
+
+Reading that list surfaced ~250 genuine content words
+(splendid, profound, irresistible, magical, admire, enthusiastic,
+obnoxious, witless, soulless, paper-thin, phony, pointless, suck, crap,
+skip, ... -- see `GAP_FILL_*` lists in lexicon_families.py) plus two gaps
+in `structural_words.yaml`'s `degree_modifiers`: "extremely" was missing
+entirely despite being a common strong intensifier, and "utter" (sibling
+of the already-present "utterly") was also missing. While fixing those I
+added four more intensifiers spotted the same way: "hugely", "wholly",
+"insanely", "exceedingly", plus "overly" at the same amplify-only value
+as "too" (rule: the degree_modifier mechanism amplifies, it does not
+itself inject sentiment, even though "overly" nearly always collocates
+with a complaint -- consistent with the existing "too" decision above).
+
+**Deliberately excluded words** (same batch), because their polarity
+flips with genre fit rather than with film quality, and a single
+word-level weight would be more likely to mislead than help: scary,
+frightening, terrifying, shocking, outrageous, dark, tension, guilty,
+hot, fat, sick, complicated. A horror film being "scary" is praise; a
+drama being "scary" (tonally) is more often a complaint -- no single
+sign-and-magnitude weight represents both correctly, and the architecture
+has no per-genre conditioning to disambiguate. Declining to author a
+value here is a judgment call like any other, not a gap.
+
+**Result after batch 2**: 651 families, 1001 matched forms, 1001 distinct
+lexicon words (zero new conflicts, zero new zero-match families -- as
+expected, since this batch was sourced directly from the vocabulary
+rather than guessed). Combined with structural_words.yaml's 40
+degree_modifiers + 15 certainty + 11 negators + 11 contrast_markers + 12
+content_negators (7 of which deliberately collide with a lexicon.yaml
+word, see structural_words.yaml notes), 1083 distinct words now carry at
+least one hand-authored nonzero weight, for upward of 2000 nonzero
+embedding-table entries alone once valence+sensitivity are both counted
+-- comfortably clearing the brief's "thousands of non-zero weights"
+target before the composition/fusion/output layers are even counted.
+
+The 28 families with zero vocabulary matches (e.g. "unmatched",
+"peerless", "tour-de-force", "catastrophe", "trainwreck") and the ~300
+unmatched surface forms (mostly adverb/participle inflections like
+"flawlessly", "mesmerizingly", "underachieved") are left as-is: they are
+real words absent from the frequency-floor vocabulary, not authoring
+errors, and adding them would require changing `vocab.json`'s frequency
+floor -- out of scope for this pass and not motivated by any actual
+deficit in the covered vocabulary.

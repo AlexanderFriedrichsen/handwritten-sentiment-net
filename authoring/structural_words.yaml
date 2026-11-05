@@ -54,21 +54,30 @@ contrast_markers:
 # specifically to signal an extreme/absolute degree):
 degree_modifiers:
   utterly: 2.2
+  utter: 2.2        # pre-nominal sibling of utterly ("utter nonsense/joy")
   absolutely: 2.1
   incredibly: 2.0
   enormously: 2.0
   immensely: 2.0
+  extremely: 2.0
   wildly: 1.9
   completely: 1.9
+  insanely: 1.9
+  hugely: 1.9
   thoroughly: 1.8
   truly: 1.8
   amazingly: 1.8
   totally: 1.8
+  wholly: 1.8
   deeply: 1.7
   highly: 1.7
   remarkably: 1.7
+  exceedingly: 1.7
   very: 1.6
   too: 1.5          # see RATIONALE.md for the "too" simplification note
+  overly: 1.5        # same slot as "too": amplifies only, carries no extra
+                      # sentiment of its own even though it usually collocates
+                      # with a negative ("overly sentimental")
   especially: 1.5
   particularly: 1.5
   so: 1.4
