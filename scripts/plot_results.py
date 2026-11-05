@@ -131,7 +131,10 @@ def main() -> int:
     ax.set_title("Frozen zero-label hand-net vs. label-budgeted sklearn baselines")
     ax.set_ylim(0.4, 1.0)
     ax.grid(True, which="both", alpha=0.3)
-    ax.legend(loc="lower right", fontsize=8)
+    # Anchored below the BERT-base reference line (0.927, only ~0.07 above the
+    # y=1.0 axes top -- too little headroom for the legend box) and above the
+    # baseline curves' rise, which stays under 0.68 through this x range.
+    ax.legend(loc="upper left", bbox_to_anchor=(0.01, 0.78), fontsize=8)
 
     OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     fig.tight_layout()
