@@ -1,0 +1,37 @@
+{
+  "frozen_at": "2026-11-05T19:26:00Z",
+  "branch": "fm/sentiment-author",
+  "tag": "frozen-v1",
+  "labels_seen": 0,
+  "hash_algorithm": "sha256",
+  "manifest_sha256": "e6a45b66ac8696514d8d7b62db67d22b61d0a7713a3174c5c0027c62eb0c1f34",
+  "manifest_recipe": "For each path below, compute sha256sum(path). Sort the resulting '<path> <hex_digest>' lines lexicographically by path, join with a single newline between lines and a trailing newline, and take the sha256 of that byte sequence. This is reproducible with: for f in <paths sorted>; do sha256sum \"$f\"; done | awk '{print $2, $1}' | sort | sha256sum (using the file's own path as printed, relative to the repo root).",
+  "files": {
+    "authoring/composition_weights.yaml": "70496a8a5f19b18e6677c17ec6362963e7ff5bd3b91abdde7d5e5f6c7b54dc5c",
+    "authoring/lexicon.yaml": "fbf04bb8bd3509950f577f9f541f0fa76c93c1532c472f44a6dddc11d8cb82a8",
+    "authoring/lexicon_families.py": "a579884e32af699624fdc3b50aae47f51545eda9a933d153963d60eb025c5c75",
+    "authoring/structural_words.yaml": "e386bca2c64a23dcc737870cb1daa49fb415adf16de92773d22d46f052ad77a2",
+    "handnet/__init__.py": "6001b3fa49f2cd267168a61468b87d9bdcd3df83969d614b81007214ea4d95c8",
+    "handnet/columns.py": "5cbb538f028afaf75e98614d7ba54c1d946cfe9971f3ac5c4d0c705376e99e20",
+    "handnet/encode.py": "88e67f32df2d0e0c09d8008c656d7dd981d1fa5418a2e0c2fd5d121cd6e75d7f",
+    "handnet/net.py": "db01cd8de857d963d2079bf646f44750e6a80f303b02e664838da3e268a0473a",
+    "handnet/tokenize.py": "a8e81326d50fd625d845ad9189590f5768468ed913479fa5afea1cd0cb80da97",
+    "handnet/units.py": "f80a328460c8ada863292fdbdf3d14533a33a5bfd234390a4958b78567ff7b76",
+    "scripts/compile_weights.py": "4f88c2fe796737911ea4cea1f21a5423ab24454326b7d3bd35423cdb7ca52bf0",
+    "scripts/expand_lexicon.py": "64eebd521365d6e7bf7b452e41411ab62db5f745d727b58a0c00b7f36ef1b679",
+    "vocab/vocab.json": "fdacf7787d0236e44d21da4e47ebd47974e70ca8e6a63fb412704bf3fe7a761a",
+    "weights/weights.npz": "b6b7e4bca79db7746316c46bd97e1726f6b5c6353c5b7b93be0244af91514400"
+  },
+  "excluded_from_manifest": {
+    "scripts/build_vocab.py": "one-time vocabulary-construction procedure; its entire effect is already captured by the hashed vocab/vocab.json output, which is what the running net actually reads",
+    "scripts/fetch_sst2.py": "one-time label-free data-fetch procedure; output (data/train_sentences.txt) is gitignored and not part of the running model",
+    "scripts/report_params.py": "read-only reporting tool; never read by the compiler, encoder, or net, so it cannot affect behavior"
+  },
+  "integrity_attestation": {
+    "rule_1_no_label_access": "No SST-2 label, per-example annotation, validation split, test split, or dataset viewer was ever read, loaded, printed, or computed over. Data prep read only the train split's `sentence` column.",
+    "rule_2_no_fitting_or_search": "No gradient descent, backprop, optimizer, search, or label-conditioned statistic of any kind was used to produce any weight.",
+    "rule_3_no_external_lexicons": "No AFINN/VADER/Hu-Liu/SentiWordNet or other external sentiment lexicon was read or used as a weight source; every valence/sensitivity/degree/certainty value is this process's own lexical judgment.",
+    "rule_4_no_output_driven_tuning": "The net was never run on text and judged by whether a prediction looked right; mechanism tests checked formulas against hand-computed values only, and zero weights were retuned after any test.",
+    "rule_5_contemporaneous_log": "authoring/RATIONALE.md was appended to as each decision was made, timestamped, and never rewritten after the fact."
+  }
+}

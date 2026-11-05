@@ -665,3 +665,45 @@ change -- confirmed nothing else in the codebase referenced them);
 which only worked because `units.py` happens to import that name from
 `handnet.columns` for its own internal use -- fixed the test to import
 it from `handnet.columns`, its actual home.
+
+## 2026-11-05T19:26Z -- Freeze
+
+Weight authoring is complete. Wrote `PROTOCOL.md` (the repo-local
+restatement of the governing protocol: visibility rules, the
+permanent ban on label-conditioned statistics, the one narrow allowed
+Phase 2 revision and its `labels_seen` accounting, the separate-
+evaluator requirement) and `FREEZE.md`/`freeze.json` (SHA-256 of every
+file that determines the net's behavior -- the three authored YAML
+files plus `lexicon_families.py`, `vocab/vocab.json`,
+`weights/weights.npz`, every file under `handnet/`, and the two
+judgment-free compilers `scripts/compile_weights.py` and
+`scripts/expand_lexicon.py` -- plus one manifest hash over all of
+them: `e6a45b66ac8696514d8d7b62db67d22b61d0a7713a3174c5c0027c62eb0c1f34`).
+Verified the manifest is exactly reproducible by re-running the
+recipe in `FREEZE.md` against the on-disk files before writing either
+document down.
+
+**Attestation, at the moment of freeze**: `labels_seen = 0`. No SST-2
+label, validation row, test row, or dataset-viewer page was ever read
+by this process -- data preparation loaded only the train split's
+`sentence` text (18:12Z). No weight anywhere in `authoring/*.yaml` came
+from fitting, search, gradient descent, or any label-conditioned
+statistic -- every value is this process's own lexical/structural
+judgment, logged at the time it was written (18:18Z-19:15Z entries).
+No external sentiment lexicon (AFINN, VADER, Hu-Liu, SentiWordNet, or
+similar) was read or used as a weight source. The net was never run on
+text to judge whether a prediction looked right for that sentence's
+sentiment -- only inside mechanism tests, against hand-computed
+expected values (19:25Z); all 27 passed on first run, so no weight was
+ever retuned after seeing any output. This log itself has been
+appended to, timestamped, as each decision was made, and no prior
+entry above this one has been rewritten after the fact.
+
+From this commit forward: `weights/`, `vocab/vocab.json`, every file
+under `handnet/`, `scripts/compile_weights.py`,
+`scripts/expand_lexicon.py`, and every file under `authoring/` except
+this log are immutable, per `PROTOCOL.md` §5, with exactly the one
+exception that section's §6 narrowly carves out (a label-convention
+audit on the disclosed validation split, never a retune) -- and that
+exception, if it is ever exercised, gets logged here, appended, same
+as everything else in this file.
