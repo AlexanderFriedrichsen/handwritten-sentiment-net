@@ -416,3 +416,198 @@ distinct words, 16 of those also carry a lexicon valence, so 1083
 distinct words carry at least one hand-authored nonzero weight -- the
 same combined total as before by coincidence (each newly-dual-purpose
 word was already counted on the structural side).
+
+## 2026-11-05T19:15Z -- Composition/fusion/output design, and a pooling-formula fix to the encoder
+
+This entry fixes composition layer 1, fusion, and the output layer
+(`authoring/composition_weights.yaml`) before any entry of that file was
+written, same discipline as the 18:18Z architecture entry. It also
+**amends step 6** of that entry (the per-bucket pooling formula): where
+the two conflict, this entry controls. Not editing the original in
+place, consistent with this log being append-only (see the correction
+two entries above).
+
+**The problem, found by trying to write real numbers into composition
+layer 1.** Two of the twelve named units need information the
+originally-specified pooling cannot deliver:
+- `negated_sentiment_pre/post` needs each negated token's valence
+  flipped by *its own* `negation_sensitivity` before averaging across
+  the bucket -- i.e. a per-token product `-sensitivity_i * valence_i`.
+- `modified_sentiment_pre/post` needs each modified token's valence
+  scaled by the *preceding* degree-modifier token's `degree_modifier`
+  value -- a per-token-pair product `valence_i * degree_modifier_{i-1}`.
+
+Step 6 as originally written pools each of the 7 embedding columns
+*independently* (average column 0 across the bucket's tokens, average
+column 1 across the same tokens, separately). That throws away the
+pairing. Concretely: a negated bucket with one token at
+`valence=2.6, sensitivity=0.3` should contribute `-0.3*2.6 = -0.78`.
+Independently-pooled columns give composition layer 1 only `avg(valence)
+= 2.6` and `avg(sensitivity) = 0.3` as *separate* numbers; the only
+things a linear unit can build from two independent numbers are linear
+combinations of them (e.g. `-1.0*valence + 0.3*sensitivity = -2.51`),
+never their product, and no linear combination of the two equals -0.78
+in general -- the error above is 3x too large and has no reason to shrink
+for other inputs. This isn't a tuning gap, it's a shape mismatch:
+`Linear(49->12)+tanh`, fixed in the 18:18Z entry before any weight
+existed, cannot compute a product of two of its inputs from independent
+per-column aggregates, for any choice of weights. Changing that layer's
+shape now would be exactly the kind of after-the-fact architecture
+reshaping the brief's "fixed before any weight" discipline exists to
+prevent.
+
+**Fix: move the multiplication into the encoder's pooling step, not into
+composition layer 1.** The encoder already computes a per-token product
+mechanically -- it is simple arithmetic over columns that are themselves
+label-free, uniform across every sentence regardless of word identity,
+and fixed before any value in `composition_weights.yaml` was chosen, so
+it carries the same "mechanism, not sentiment judgment" status as the
+rest of step 5/6 already had. Precedent for doing math inside the
+encoder already exists in the committed design: `pre_len_frac` and
+`post_len_frac` are themselves ratios (token counts divided by sentence
+length), computed once by the encoder rather than left for composition
+layer 1 to reconstruct from raw counts. This fix is the same move,
+applied to two more positions:
+- Within the **negated** bucket only (both clauses), the value pooled
+  into the `negation_sensitivity` column (index 1 of that block) is
+  redefined from "average raw `negation_sensitivity`" to "average of
+  `-sensitivity_i * valence_i`, computed per token before pooling."
+  `valence` (column 0) is left pooled as before in this bucket too
+  (harmless extra information, not read by the unit that needs the
+  product).
+- Within the **modified** bucket only (both clauses), the value pooled
+  into the `degree_modifier` column (index 4 of that block) is redefined
+  from "average raw `degree_modifier`" to "average of
+  `valence_i * degree_modifier_{i-1}`, computed per token before
+  pooling" -- `degree_modifier_{i-1}` is the *preceding* token's
+  embedding value, which the encoder already has to inspect to decide
+  bucket membership in step 5, so this adds no new lookup, only reuses
+  one already being performed.
+- The **plain** bucket is untouched: there is no modifier or negation to
+  fold in, so its raw per-column average is already exactly what is
+  wanted.
+
+All 49 output numbers, all 6 embedding columns, and the
+`Linear(49->12)+tanh` shape are unchanged; only the *content* of 2 of
+the 42 per-block numbers is redefined, by a rule that depends solely on
+bucket identity and token position, never on any word's sentiment value.
+Total parameter count is therefore unaffected (embedding 100,170 +
+composition-1 600 + fusion/output 16 = 100,786, same as the 18:18Z
+entry).
+
+**Bucket-precedence restated, not changed.** Step 5 already defines
+"modified" as "preceded by a degree modifier *and not negated*" -- so a
+token that is both within an open negation window and immediately
+preceded by a degree modifier ("not very good") was already specified
+to land in the **negated** bucket, never "modified." Stating this
+explicitly here because the pooling fix above depends on it: the
+degree-modifier interaction for such a token is simply not captured (the
+negated-bucket formula doesn't reference the preceding token at all).
+Logging this as a fifth known v1 simplification, alongside the four
+already listed in the 18:18Z entry: a token that is both negated and
+modified keeps only its negation product; the modifier's own strength is
+dropped for that token (the modifier word itself is still pooled under
+its own bucket using its own embedding row, so it is not entirely
+without effect, just not combined with this particular neighbor).
+
+**`is_negator`/`is_contrast` are provably always 0 in every pooled
+vector.** Step 5 excludes negators and contrast markers from all 3
+buckets ("they carry no sentiment of their own, only structural
+effect"); they are counted via the `has_contrast`/`num_negators` flags
+instead. Since no negator or contrast-marker token is ever assigned to
+any bucket, for any sentence, columns 2 (`is_negator`) and 3
+(`is_contrast`) of all 6 pooled blocks are identically 0 -- not usually,
+always, by construction. Absolute indices 2, 3, 9, 10, 16, 17, 23, 24,
+30, 31, 37, 38 of the 49 are therefore dead inputs. No unit in
+`composition_weights.yaml` assigns a nonzero weight to any of them.
+
+**Canonical 49-index layout** (fixed here since nothing before this
+entry pinned a concrete order, only "6 pooled 7-dim vectors + 7
+scalars"): blocks in order pre_plain(0-6), pre_negated(7-13),
+pre_modified(14-20), post_plain(21-27), post_negated(28-34),
+post_modified(35-41); each block's 7 columns in the embedding table's
+own column order (valence, negation_sensitivity, is_negator, is_contrast,
+degree_modifier, certainty, content_negator); then scalars
+has_contrast=42, pre_len_frac=43, post_len_frac=44, num_negators=45,
+has_exclaim=46, has_question=47, sentence_length=48. Full index map and
+every unit's weights are in `composition_weights.yaml` itself, not
+duplicated here.
+
+**Composition layer 1, unit by unit** (full detail and index comments
+live in the YAML; summarized here):
+- The 6 direct sentiment units (`plain/negated/modified_sentiment_pre/
+  post`) are each a pure pass-through (weight 1.0) of exactly one
+  already-correctly-computed input: raw pooled valence for `plain`, the
+  redefined product column for `negated` and `modified`. No arithmetic
+  left for these units to do -- the encoder fix moved it upstream.
+- `semantic_negation_signal` pools `content_negator` across all 6
+  buckets (weight 0.5 each, since each is already a [0,1] fraction) plus
+  a small share of the raw `num_negators` count (weight 0.2).
+- `certainty_signal` pools `certainty` across all 6 buckets at equal
+  weight 1.0 each -- certainty is defined (18:18Z) to mean the same
+  thing regardless of bucket/clause, so every occurrence counts the
+  same and additively.
+- `emphasis_signal` and `negation_density_signal` each approximate a
+  concept the fixed architecture cannot express exactly (signed proxy
+  for magnitude; linear proxy for a count-over-length ratio,
+  respectively) -- logged as known limitations in the YAML's own notes
+  rather than overclaimed.
+- `question_discount_signal` reads only `has_question`; seeing it
+  through forced writing out the fusion formula explicitly below to
+  realize that *true* discounting (scaling other terms down) is a
+  multiplicative operation this architecture cannot express at the
+  fusion stage either (fusion is also a fixed weighted sum). v1 settles
+  for a small constant directional nudge via the fusion weight instead
+  of real discounting -- named ambition vs. actual mechanism, documented
+  rather than silently overclaimed.
+- `pre_post_length_signal` is `post_len_frac - pre_len_frac`, informative
+  only when `has_contrast=1` (otherwise always -1 before tanh, by
+  construction of those two fractions).
+- Every one of the 12 biases is 0.0, for the same reason `output_bias`
+  is 0.0 below: a nonzero bias would need either a label-derived base
+  rate (rule 1) or empirical calibration against actual output (rule 4)
+  to justify any particular value, and no such value is derivable from
+  reasoning alone.
+- Every weight magnitude was chosen so that each term's contribution is
+  roughly the same order of magnitude as the others given that input's
+  known range (valence in [-3,3], degree_modifier in [0,2.5], certainty
+  in [-1,1], content_negator and the len_fracs in [0,1], num_negators and
+  sentence_length as small/moderate counts) -- comparable-dynamic-range
+  matching, the same style of reasoning-only justification already used
+  for every lexicon valence tier, not a value chosen by looking at any
+  output.
+
+**Fusion.** `raw_score = pre_weight*(f1*h1+f2*h2+f3*h3) +
+post_weight*(f4*h4+f5*h5+f6*h6) + f7*h7+...+f12*h12`, `pre_weight = 1 -
+has_contrast*(1-ALPHA)`, `post_weight = has_contrast*BETA` (18:18Z).
+`f1..f6 = 1.0`: the 6 direct sentiment units are the primary signal and
+pass through at full strength, modulated only by the contrast gate.
+`f7..f12` are each <= 0.6 in magnitude so the 6 secondary "signal" units
+can shift `raw_score` without dominating the direct pooled sentiment --
+an ordering of importance (sentiment content first, discourse/register
+cues second), not a tuned ratio. `ALPHA=0.4`, `BETA=1.6`: symmetric
+around 1.0 (`1 - 0.6` and `1 + 0.6`), so "X but Y" damps the pre-clause
+and amplifies the post-clause by the same 0.6 step -- the simplest
+symmetric choice consistent with the report's "post-clause dominates"
+claim (3.1) that doesn't also smuggle in an arbitrary asymmetric split
+only justifiable by having seen what it does to real sentences.
+
+**Output.** `logit = raw_score*output_scale + output_bias`,
+`p = sigmoid(logit)`. `output_scale=1.0`, `output_bias=0.0`: identity and
+zero are the only values derivable from reasoning alone. Any other scale
+would be rescaling `raw_score` against a target spread knowable only
+from labels or from running the net on real text (rules 1 and 4); any
+nonzero bias would encode a prior class base rate, itself a label-derived
+statistic (rule 1). These are not placeholders awaiting later
+calibration -- they are the frozen values, and the two-phase protocol
+(`PROTOCOL.md`) never revisits them.
+
+**Result**: `composition_weights.yaml` written with 31 nonzero
+composition-layer-1 weights across the 12 units (deliberately sparse --
+each unit reads only the handful of inputs its name describes, per the
+18:18Z design), 12 fusion weights + ALPHA + BETA, and output_scale (all
+biases, including output_bias, 0.0 as justified above). Total parameter
+count unchanged at ~100,786; the "thousands of non-zero weights" target
+was already cleared by the lexicon and structural-word tables alone
+(entry above), so this layer's deliberate sparsity is a feature, not a
+shortfall.
