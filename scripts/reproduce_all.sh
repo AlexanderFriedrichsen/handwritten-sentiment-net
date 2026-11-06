@@ -83,7 +83,7 @@ fi
 if [ "${SMOKE:-0}" = "1" ]; then
   step "6/7 plot (skipped under SMOKE=1 -- smoke budgets have nothing meaningful to plot)"
 else
-  step "6/7 plot (scripts/plot_results.py)"
+  step "6/7 plot (scripts/plot_results.py -- writes figures/results.png and figures/x_labels_vs_handnet.png)"
   "$PY" scripts/plot_results.py
 fi
 
@@ -93,7 +93,7 @@ step "7/7 full test suite"
 step "done"
 echo "Regenerated: results/handnet_eval.json, results/baselines.json"
 if [ "${SMOKE:-0}" != "1" ]; then
-  echo "  and figures/results.png"
+  echo "  and figures/results.png, figures/x_labels_vs_handnet.png"
 fi
 echo "results/label_audit.json was left untouched if it already existed (see step 3/7)."
 echo "Compare against the committed versions with: git diff --stat results/ figures/"

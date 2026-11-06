@@ -16,6 +16,7 @@ describes, which likewise never touched a frozen weight. See:
 - [`PROTOCOL.md`](PROTOCOL.md) -- the visibility rules, the two-phase split, and the one narrowly-accounted-for exception to "never touch a frozen weight again."
 - [`FREEZE.md`](FREEZE.md) / [`freeze.json`](freeze.json) -- SHA-256 hashes of every file that determines the net's behavior, plus the integrity attestation.
 - [`authoring/RATIONALE.md`](authoring/RATIONALE.md) -- the timestamped, append-only log of every design and weight decision, written as it happened.
+- [`docs/x-thread.md`](docs/x-thread.md) -- draft X thread (not yet posted) covering round 1 (poker) and this round's result, with its chart at [`figures/x_labels_vs_handnet.png`](figures/x_labels_vs_handnet.png).
 
 **Result summary:** the frozen net scores 0.5103 accuracy / 0.3190 F1 on
 the one-shot, zero-label SST-2 validation pass (872 rows) -- just 0.0011
