@@ -1,0 +1,2417 @@
+{
+  "schema_notes": {
+    "budget": "number of TRAIN-pool rows the fit actually trains on (sampled from pool_idx, disjoint from the audit and tune slices -- see scripts/eval_common.py reserve_slices)",
+    "dev_size": "always 0 -- hist_gbt/mlp use early_stopping=True with scikit-learn's own internal validation_fraction, carved FROM the budget itself (not extra rows read beyond it); logistic_regression has no such mechanism at all",
+    "labels_seen": "budget + dev_size, i.e. always exactly equal to budget for every row here",
+    "n_iterations": "lbfgs iterations (logistic_regression) / boosting rounds actually used at predict time (hist_gbt) / optimizer epochs actually run (mlp) -- reflects early stopping for hist_gbt/mlp, which varies legitimately by budget and seed",
+    "n_params": "exact weight count for logistic_regression/mlp; null for hist_gbt, where an exact 'parameter count' for a tree ensemble is not a well-defined, comparable quantity -- see RESULTS.md for the capacity discussion instead",
+    "evaluation_set": "every row is scored against the identical 872-row SST-2 validation split scripts/eval_handnet.py uses for the frozen net's official score, so accuracy/F1 numbers here are directly comparable to results/handnet_eval.json"
+  },
+  "hyperparameter_search": {
+    "method": "one bounded grid search per family on the disjoint 3000-row tune slice (internal 80%/20% train/val split, seed 777); early_stopping disabled during the search itself (fixed max_iter=300) so candidates are compared on capacity/regularization alone, not incidentally-different stopping points. Winners are locked in and reused unchanged for every budget/seed fit below, which instead uses early_stopping=True (max_iter=1000 ceiling) so each fit's own iteration count adapts to its own budget size.",
+    "grids_searched": {
+      "logistic_regression_C": [
+        0.01,
+        0.1,
+        1.0,
+        10.0,
+        100.0
+      ],
+      "hist_gbt_learning_rate_x_max_leaf_nodes": [
+        {
+          "learning_rate": 0.3,
+          "max_leaf_nodes": 15
+        },
+        {
+          "learning_rate": 0.3,
+          "max_leaf_nodes": 31
+        },
+        {
+          "learning_rate": 0.3,
+          "max_leaf_nodes": 63
+        },
+        {
+          "learning_rate": 0.1,
+          "max_leaf_nodes": 15
+        },
+        {
+          "learning_rate": 0.1,
+          "max_leaf_nodes": 31
+        },
+        {
+          "learning_rate": 0.1,
+          "max_leaf_nodes": 63
+        },
+        {
+          "learning_rate": 0.03,
+          "max_leaf_nodes": 15
+        },
+        {
+          "learning_rate": 0.03,
+          "max_leaf_nodes": 31
+        },
+        {
+          "learning_rate": 0.03,
+          "max_leaf_nodes": 63
+        }
+      ],
+      "mlp_hidden_layer_sizes_x_alpha": [
+        {
+          "hidden_layer_sizes": [
+            32
+          ],
+          "alpha": 0.0001
+        },
+        {
+          "hidden_layer_sizes": [
+            32
+          ],
+          "alpha": 0.001
+        },
+        {
+          "hidden_layer_sizes": [
+            32
+          ],
+          "alpha": 0.01
+        },
+        {
+          "hidden_layer_sizes": [
+            64
+          ],
+          "alpha": 0.0001
+        },
+        {
+          "hidden_layer_sizes": [
+            64
+          ],
+          "alpha": 0.001
+        },
+        {
+          "hidden_layer_sizes": [
+            64
+          ],
+          "alpha": 0.01
+        },
+        {
+          "hidden_layer_sizes": [
+            32,
+            16
+          ],
+          "alpha": 0.0001
+        },
+        {
+          "hidden_layer_sizes": [
+            32,
+            16
+          ],
+          "alpha": 0.001
+        },
+        {
+          "hidden_layer_sizes": [
+            32,
+            16
+          ],
+          "alpha": 0.01
+        }
+      ]
+    },
+    "winners": {
+      "logistic_regression": {
+        "C": 10.0,
+        "tune_val_accuracy": 0.72
+      },
+      "hist_gbt": {
+        "learning_rate": 0.03,
+        "max_leaf_nodes": 15,
+        "tune_val_accuracy": 0.7116666666666667
+      },
+      "mlp": {
+        "hidden_layer_sizes": [
+          32
+        ],
+        "alpha": 0.0001,
+        "tune_val_accuracy": 0.72
+      }
+    },
+    "labels_seen_for_tuning": 3000,
+    "tuning_cost_note": "This one-time tuning cost (3000 labels) is disclosed here, separately, and is NOT folded into any row's own labels_seen above -- a locked-in hyperparameter search is a one-time project cost, not a per-row cost."
+  },
+  "class_weighting_note": "SST-2 train is mildly imbalanced (37569 positive / 29780 negative, ~56/44) -- too mild to warrant inverse-frequency class weighting; no class-weighted variant is run (disclosed judgment call, not an oversight).",
+  "n_pool": 64049,
+  "budget_specs": [
+    "16",
+    "64",
+    "256",
+    "1000",
+    "5000",
+    "full"
+  ],
+  "budgets": [
+    16,
+    64,
+    256,
+    1000,
+    5000,
+    64049
+  ],
+  "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4
+  ],
+  "smoke": false,
+  "rows": [
+    {
+      "family": "logistic_regression",
+      "budget": 16,
+      "dev_size": 0,
+      "labels_seen": 16,
+      "seed": 0,
+      "n_iterations": 26,
+      "n_params": 50,
+      "fit_seconds": 0.004053354263305664,
+      "n": 872,
+      "accuracy": 0.48394495412844035,
+      "precision": 0.4943181818181818,
+      "recall": 0.5878378378378378,
+      "f1": 0.5370370370370371,
+      "confusion_matrix": [
+        [
+          161,
+          267
+        ],
+        [
+          183,
+          261
+        ]
+      ]
+    },
+    {
+      "family": "hist_gbt",
+      "budget": 16,
+      "dev_size": 0,
+      "labels_seen": 16,
+      "seed": 0,
+      "n_iterations": 10,
+      "n_params": null,
+      "fit_seconds": 0.0848381519317627,
+      "n": 872,
+      "accuracy": 0.5091743119266054,
+      "precision": 0.5091743119266054,
+      "recall": 1.0,
+      "f1": 0.6747720364741642,
+      "confusion_matrix": [
+        [
+          0,
+          428
+        ],
+        [
+          0,
+          444
+        ]
+      ]
+    },
+    {
+      "family": "mlp",
+      "budget": 16,
+      "dev_size": 0,
+      "labels_seen": 16,
+      "seed": 0,
+      "n_iterations": 12,
+      "n_params": 1633,
+      "fit_seconds": 0.0052225589752197266,
+      "n": 872,
+      "accuracy": 0.5091743119266054,
+      "precision": 0.5091743119266054,
+      "recall": 1.0,
+      "f1": 0.6747720364741642,
+      "confusion_matrix": [
+        [
+          0,
+          428
+        ],
+        [
+          0,
+          444
+        ]
+      ]
+    },
+    {
+      "family": "logistic_regression",
+      "budget": 16,
+      "dev_size": 0,
+      "labels_seen": 16,
+      "seed": 1,
+      "n_iterations": 43,
+      "n_params": 50,
+      "fit_seconds": 0.004796743392944336,
+      "n": 872,
+      "accuracy": 0.5894495412844036,
+      "precision": 0.5573333333333333,
+      "recall": 0.9414414414414415,
+      "f1": 0.7001675041876047,
+      "confusion_matrix": [
+        [
+          96,
+          332
+        ],
+        [
+          26,
+          418
+        ]
+      ]
+    },
+    {
+      "family": "hist_gbt",
+      "budget": 16,
+      "dev_size": 0,
+      "labels_seen": 16,
+      "seed": 1,
+      "n_iterations": 10,
+      "n_params": null,
+      "fit_seconds": 0.10581588745117188,
+      "n": 872,
+      "accuracy": 0.5091743119266054,
+      "precision": 0.5091743119266054,
+      "recall": 1.0,
+      "f1": 0.6747720364741642,
+      "confusion_matrix": [
+        [
+          0,
+          428
+        ],
+        [
+          0,
+          444
+        ]
+      ]
+    },
+    {
+      "family": "mlp",
+      "budget": 16,
+      "dev_size": 0,
+      "labels_seen": 16,
+      "seed": 1,
+      "n_iterations": 12,
+      "n_params": 1633,
+      "fit_seconds": 0.005303859710693359,
+      "n": 872,
+      "accuracy": 0.5091743119266054,
+      "precision": 0.5091954022988506,
+      "recall": 0.9977477477477478,
+      "f1": 0.6742770167427702,
+      "confusion_matrix": [
+        [
+          1,
+          427
+        ],
+        [
+          1,
+          443
+        ]
+      ]
+    },
+    {
+      "family": "logistic_regression",
+      "budget": 16,
+      "dev_size": 0,
+      "labels_seen": 16,
+      "seed": 2,
+      "n_iterations": 37,
+      "n_params": 50,
+      "fit_seconds": 0.003591775894165039,
+      "n": 872,
+      "accuracy": 0.5217889908256881,
+      "precision": 0.5320665083135392,
+      "recall": 0.5045045045045045,
+      "f1": 0.5179190751445086,
+      "confusion_matrix": [
+        [
+          231,
+          197
+        ],
+        [
+          220,
+          224
+        ]
+      ]
+    },
+    {
+      "family": "hist_gbt",
+      "budget": 16,
+      "dev_size": 0,
+      "labels_seen": 16,
+      "seed": 2,
+      "n_iterations": 10,
+      "n_params": null,
+      "fit_seconds": 0.0910940170288086,
+      "n": 872,
+      "accuracy": 0.5091743119266054,
+      "precision": 0.5091743119266054,
+      "recall": 1.0,
+      "f1": 0.6747720364741642,
+      "confusion_matrix": [
+        [
+          0,
+          428
+        ],
+        [
+          0,
+          444
+        ]
+      ]
+    },
+    {
+      "family": "mlp",
+      "budget": 16,
+      "dev_size": 0,
+      "labels_seen": 16,
+      "seed": 2,
+      "n_iterations": 12,
+      "n_params": 1633,
+      "fit_seconds": 0.0056493282318115234,
+      "n": 872,
+      "accuracy": 0.5286697247706422,
+      "precision": 0.5232067510548524,
+      "recall": 0.8378378378378378,
+      "f1": 0.6441558441558441,
+      "confusion_matrix": [
+        [
+          89,
+          339
+        ],
+        [
+          72,
+          372
+        ]
+      ]
+    },
+    {
+      "family": "logistic_regression",
+      "budget": 16,
+      "dev_size": 0,
+      "labels_seen": 16,
+      "seed": 3,
+      "n_iterations": 34,
+      "n_params": 50,
+      "fit_seconds": 0.003076314926147461,
+      "n": 872,
+      "accuracy": 0.5401376146788991,
+      "precision": 0.5549872122762148,
+      "recall": 0.48873873873873874,
+      "f1": 0.5197604790419161,
+      "confusion_matrix": [
+        [
+          254,
+          174
+        ],
+        [
+          227,
+          217
+        ]
+      ]
+    },
+    {
+      "family": "hist_gbt",
+      "budget": 16,
+      "dev_size": 0,
+      "labels_seen": 16,
+      "seed": 3,
+      "n_iterations": 10,
+      "n_params": null,
+      "fit_seconds": 0.08400487899780273,
+      "n": 872,
+      "accuracy": 0.5091743119266054,
+      "precision": 0.5091743119266054,
+      "recall": 1.0,
+      "f1": 0.6747720364741642,
+      "confusion_matrix": [
+        [
+          0,
+          428
+        ],
+        [
+          0,
+          444
+        ]
+      ]
+    },
+    {
+      "family": "mlp",
+      "budget": 16,
+      "dev_size": 0,
+      "labels_seen": 16,
+      "seed": 3,
+      "n_iterations": 12,
+      "n_params": 1633,
+      "fit_seconds": 0.0062944889068603516,
+      "n": 872,
+      "accuracy": 0.5091743119266054,
+      "precision": 0.5091954022988506,
+      "recall": 0.9977477477477478,
+      "f1": 0.6742770167427702,
+      "confusion_matrix": [
+        [
+          1,
+          427
+        ],
+        [
+          1,
+          443
+        ]
+      ]
+    },
+    {
+      "family": "logistic_regression",
+      "budget": 16,
+      "dev_size": 0,
+      "labels_seen": 16,
+      "seed": 4,
+      "n_iterations": 34,
+      "n_params": 50,
+      "fit_seconds": 0.0029456615447998047,
+      "n": 872,
+      "accuracy": 0.6123853211009175,
+      "precision": 0.5702917771883289,
+      "recall": 0.9684684684684685,
+      "f1": 0.7178631051752922,
+      "confusion_matrix": [
+        [
+          104,
+          324
+        ],
+        [
+          14,
+          430
+        ]
+      ]
+    },
+    {
+      "family": "hist_gbt",
+      "budget": 16,
+      "dev_size": 0,
+      "labels_seen": 16,
+      "seed": 4,
+      "n_iterations": 10,
+      "n_params": null,
+      "fit_seconds": 0.1230764389038086,
+      "n": 872,
+      "accuracy": 0.5091743119266054,
+      "precision": 0.5091743119266054,
+      "recall": 1.0,
+      "f1": 0.6747720364741642,
+      "confusion_matrix": [
+        [
+          0,
+          428
+        ],
+        [
+          0,
+          444
+        ]
+      ]
+    },
+    {
+      "family": "mlp",
+      "budget": 16,
+      "dev_size": 0,
+      "labels_seen": 16,
+      "seed": 4,
+      "n_iterations": 12,
+      "n_params": 1633,
+      "fit_seconds": 0.005159616470336914,
+      "n": 872,
+      "accuracy": 0.48509174311926606,
+      "precision": 0.49406175771971494,
+      "recall": 0.46846846846846846,
+      "f1": 0.48092485549132946,
+      "confusion_matrix": [
+        [
+          215,
+          213
+        ],
+        [
+          236,
+          208
+        ]
+      ]
+    },
+    {
+      "family": "logistic_regression",
+      "budget": 64,
+      "dev_size": 0,
+      "labels_seen": 64,
+      "seed": 0,
+      "n_iterations": 28,
+      "n_params": 50,
+      "fit_seconds": 0.01860356330871582,
+      "n": 872,
+      "accuracy": 0.6422018348623854,
+      "precision": 0.6009174311926605,
+      "recall": 0.8851351351351351,
+      "f1": 0.7158469945355191,
+      "confusion_matrix": [
+        [
+          167,
+          261
+        ],
+        [
+          51,
+          393
+        ]
+      ]
+    },
+    {
+      "family": "hist_gbt",
+      "budget": 64,
+      "dev_size": 0,
+      "labels_seen": 64,
+      "seed": 0,
+      "n_iterations": 10,
+      "n_params": null,
+      "fit_seconds": 0.1434175968170166,
+      "n": 872,
+      "accuracy": 0.5206422018348624,
+      "precision": 0.516497461928934,
+      "recall": 0.9166666666666666,
+      "f1": 0.6607142857142857,
+      "confusion_matrix": [
+        [
+          47,
+          381
+        ],
+        [
+          37,
+          407
+        ]
+      ]
+    },
+    {
+      "family": "mlp",
+      "budget": 64,
+      "dev_size": 0,
+      "labels_seen": 64,
+      "seed": 0,
+      "n_iterations": 12,
+      "n_params": 1633,
+      "fit_seconds": 0.005418300628662109,
+      "n": 872,
+      "accuracy": 0.5091743119266054,
+      "precision": 0.5091743119266054,
+      "recall": 1.0,
+      "f1": 0.6747720364741642,
+      "confusion_matrix": [
+        [
+          0,
+          428
+        ],
+        [
+          0,
+          444
+        ]
+      ]
+    },
+    {
+      "family": "logistic_regression",
+      "budget": 64,
+      "dev_size": 0,
+      "labels_seen": 64,
+      "seed": 1,
+      "n_iterations": 56,
+      "n_params": 50,
+      "fit_seconds": 0.005005836486816406,
+      "n": 872,
+      "accuracy": 0.5768348623853211,
+      "precision": 0.5492772667542707,
+      "recall": 0.9414414414414415,
+      "f1": 0.6937759336099585,
+      "confusion_matrix": [
+        [
+          85,
+          343
+        ],
+        [
+          26,
+          418
+        ]
+      ]
+    },
+    {
+      "family": "hist_gbt",
+      "budget": 64,
+      "dev_size": 0,
+      "labels_seen": 64,
+      "seed": 1,
+      "n_iterations": 88,
+      "n_params": null,
+      "fit_seconds": 0.12157440185546875,
+      "n": 872,
+      "accuracy": 0.5080275229357798,
+      "precision": 0.5086906141367323,
+      "recall": 0.9887387387387387,
+      "f1": 0.6717674062739097,
+      "confusion_matrix": [
+        [
+          4,
+          424
+        ],
+        [
+          5,
+          439
+        ]
+      ]
+    },
+    {
+      "family": "mlp",
+      "budget": 64,
+      "dev_size": 0,
+      "labels_seen": 64,
+      "seed": 1,
+      "n_iterations": 12,
+      "n_params": 1633,
+      "fit_seconds": 0.0062732696533203125,
+      "n": 872,
+      "accuracy": 0.5091743119266054,
+      "precision": 0.5091954022988506,
+      "recall": 0.9977477477477478,
+      "f1": 0.6742770167427702,
+      "confusion_matrix": [
+        [
+          1,
+          427
+        ],
+        [
+          1,
+          443
+        ]
+      ]
+    },
+    {
+      "family": "logistic_regression",
+      "budget": 64,
+      "dev_size": 0,
+      "labels_seen": 64,
+      "seed": 2,
+      "n_iterations": 40,
+      "n_params": 50,
+      "fit_seconds": 0.005227804183959961,
+      "n": 872,
+      "accuracy": 0.6307339449541285,
+      "precision": 0.6631016042780749,
+      "recall": 0.5585585585585585,
+      "f1": 0.6063569682151589,
+      "confusion_matrix": [
+        [
+          302,
+          126
+        ],
+        [
+          196,
+          248
+        ]
+      ]
+    },
+    {
+      "family": "hist_gbt",
+      "budget": 64,
+      "dev_size": 0,
+      "labels_seen": 64,
+      "seed": 2,
+      "n_iterations": 15,
+      "n_params": null,
+      "fit_seconds": 0.09435725212097168,
+      "n": 872,
+      "accuracy": 0.5091743119266054,
+      "precision": 0.5091743119266054,
+      "recall": 1.0,
+      "f1": 0.6747720364741642,
+      "confusion_matrix": [
+        [
+          0,
+          428
+        ],
+        [
+          0,
+          444
+        ]
+      ]
+    },
+    {
+      "family": "mlp",
+      "budget": 64,
+      "dev_size": 0,
+      "labels_seen": 64,
+      "seed": 2,
+      "n_iterations": 13,
+      "n_params": 1633,
+      "fit_seconds": 0.006440162658691406,
+      "n": 872,
+      "accuracy": 0.5286697247706422,
+      "precision": 0.520048602673147,
+      "recall": 0.963963963963964,
+      "f1": 0.675611681136543,
+      "confusion_matrix": [
+        [
+          33,
+          395
+        ],
+        [
+          16,
+          428
+        ]
+      ]
+    },
+    {
+      "family": "logistic_regression",
+      "budget": 64,
+      "dev_size": 0,
+      "labels_seen": 64,
+      "seed": 3,
+      "n_iterations": 36,
+      "n_params": 50,
+      "fit_seconds": 0.0033614635467529297,
+      "n": 872,
+      "accuracy": 0.6628440366972477,
+      "precision": 0.6785714285714286,
+      "recall": 0.6418918918918919,
+      "f1": 0.6597222222222222,
+      "confusion_matrix": [
+        [
+          293,
+          135
+        ],
+        [
+          159,
+          285
+        ]
+      ]
+    },
+    {
+      "family": "hist_gbt",
+      "budget": 64,
+      "dev_size": 0,
+      "labels_seen": 64,
+      "seed": 3,
+      "n_iterations": 65,
+      "n_params": null,
+      "fit_seconds": 0.11444973945617676,
+      "n": 872,
+      "accuracy": 0.6743119266055045,
+      "precision": 0.7072538860103627,
+      "recall": 0.6148648648648649,
+      "f1": 0.6578313253012048,
+      "confusion_matrix": [
+        [
+          315,
+          113
+        ],
+        [
+          171,
+          273
+        ]
+      ]
+    },
+    {
+      "family": "mlp",
+      "budget": 64,
+      "dev_size": 0,
+      "labels_seen": 64,
+      "seed": 3,
+      "n_iterations": 12,
+      "n_params": 1633,
+      "fit_seconds": 0.006285905838012695,
+      "n": 872,
+      "accuracy": 0.5091743119266054,
+      "precision": 0.5091954022988506,
+      "recall": 0.9977477477477478,
+      "f1": 0.6742770167427702,
+      "confusion_matrix": [
+        [
+          1,
+          427
+        ],
+        [
+          1,
+          443
+        ]
+      ]
+    },
+    {
+      "family": "logistic_regression",
+      "budget": 64,
+      "dev_size": 0,
+      "labels_seen": 64,
+      "seed": 4,
+      "n_iterations": 77,
+      "n_params": 50,
+      "fit_seconds": 0.005607128143310547,
+      "n": 872,
+      "accuracy": 0.6410550458715596,
+      "precision": 0.5982008995502249,
+      "recall": 0.8986486486486487,
+      "f1": 0.7182718271827183,
+      "confusion_matrix": [
+        [
+          160,
+          268
+        ],
+        [
+          45,
+          399
+        ]
+      ]
+    },
+    {
+      "family": "hist_gbt",
+      "budget": 64,
+      "dev_size": 0,
+      "labels_seen": 64,
+      "seed": 4,
+      "n_iterations": 10,
+      "n_params": null,
+      "fit_seconds": 0.12382698059082031,
+      "n": 872,
+      "accuracy": 0.5412844036697247,
+      "precision": 0.6341463414634146,
+      "recall": 0.23423423423423423,
+      "f1": 0.34210526315789475,
+      "confusion_matrix": [
+        [
+          368,
+          60
+        ],
+        [
+          340,
+          104
+        ]
+      ]
+    },
+    {
+      "family": "mlp",
+      "budget": 64,
+      "dev_size": 0,
+      "labels_seen": 64,
+      "seed": 4,
+      "n_iterations": 12,
+      "n_params": 1633,
+      "fit_seconds": 0.0060117244720458984,
+      "n": 872,
+      "accuracy": 0.4919724770642202,
+      "precision": 0.5012531328320802,
+      "recall": 0.45045045045045046,
+      "f1": 0.4744958481613286,
+      "confusion_matrix": [
+        [
+          229,
+          199
+        ],
+        [
+          244,
+          200
+        ]
+      ]
+    },
+    {
+      "family": "logistic_regression",
+      "budget": 256,
+      "dev_size": 0,
+      "labels_seen": 256,
+      "seed": 0,
+      "n_iterations": 131,
+      "n_params": 50,
+      "fit_seconds": 0.009319305419921875,
+      "n": 872,
+      "accuracy": 0.6708715596330275,
+      "precision": 0.6855791962174941,
+      "recall": 0.6531531531531531,
+      "f1": 0.6689734717416378,
+      "confusion_matrix": [
+        [
+          295,
+          133
+        ],
+        [
+          154,
+          290
+        ]
+      ]
+    },
+    {
+      "family": "hist_gbt",
+      "budget": 256,
+      "dev_size": 0,
+      "labels_seen": 256,
+      "seed": 0,
+      "n_iterations": 94,
+      "n_params": null,
+      "fit_seconds": 0.18603301048278809,
+      "n": 872,
+      "accuracy": 0.680045871559633,
+      "precision": 0.706766917293233,
+      "recall": 0.6351351351351351,
+      "f1": 0.6690391459074733,
+      "confusion_matrix": [
+        [
+          311,
+          117
+        ],
+        [
+          162,
+          282
+        ]
+      ]
+    },
+    {
+      "family": "mlp",
+      "budget": 256,
+      "dev_size": 0,
+      "labels_seen": 256,
+      "seed": 0,
+      "n_iterations": 12,
+      "n_params": 1633,
+      "fit_seconds": 0.009172677993774414,
+      "n": 872,
+      "accuracy": 0.5091743119266054,
+      "precision": 0.5091743119266054,
+      "recall": 1.0,
+      "f1": 0.6747720364741642,
+      "confusion_matrix": [
+        [
+          0,
+          428
+        ],
+        [
+          0,
+          444
+        ]
+      ]
+    },
+    {
+      "family": "logistic_regression",
+      "budget": 256,
+      "dev_size": 0,
+      "labels_seen": 256,
+      "seed": 1,
+      "n_iterations": 60,
+      "n_params": 50,
+      "fit_seconds": 0.009266376495361328,
+      "n": 872,
+      "accuracy": 0.6708715596330275,
+      "precision": 0.6351118760757315,
+      "recall": 0.831081081081081,
+      "f1": 0.72,
+      "confusion_matrix": [
+        [
+          216,
+          212
+        ],
+        [
+          75,
+          369
+        ]
+      ]
+    },
+    {
+      "family": "hist_gbt",
+      "budget": 256,
+      "dev_size": 0,
+      "labels_seen": 256,
+      "seed": 1,
+      "n_iterations": 76,
+      "n_params": null,
+      "fit_seconds": 0.1816082000732422,
+      "n": 872,
+      "accuracy": 0.6605504587155964,
+      "precision": 0.6554621848739496,
+      "recall": 0.7027027027027027,
+      "f1": 0.6782608695652174,
+      "confusion_matrix": [
+        [
+          264,
+          164
+        ],
+        [
+          132,
+          312
+        ]
+      ]
+    },
+    {
+      "family": "mlp",
+      "budget": 256,
+      "dev_size": 0,
+      "labels_seen": 256,
+      "seed": 1,
+      "n_iterations": 12,
+      "n_params": 1633,
+      "fit_seconds": 0.008763313293457031,
+      "n": 872,
+      "accuracy": 0.5091743119266054,
+      "precision": 0.5091954022988506,
+      "recall": 0.9977477477477478,
+      "f1": 0.6742770167427702,
+      "confusion_matrix": [
+        [
+          1,
+          427
+        ],
+        [
+          1,
+          443
+        ]
+      ]
+    },
+    {
+      "family": "logistic_regression",
+      "budget": 256,
+      "dev_size": 0,
+      "labels_seen": 256,
+      "seed": 2,
+      "n_iterations": 44,
+      "n_params": 50,
+      "fit_seconds": 0.004436969757080078,
+      "n": 872,
+      "accuracy": 0.6662844036697247,
+      "precision": 0.7256637168141593,
+      "recall": 0.5540540540540541,
+      "f1": 0.6283524904214559,
+      "confusion_matrix": [
+        [
+          335,
+          93
+        ],
+        [
+          198,
+          246
+        ]
+      ]
+    },
+    {
+      "family": "hist_gbt",
+      "budget": 256,
+      "dev_size": 0,
+      "labels_seen": 256,
+      "seed": 2,
+      "n_iterations": 110,
+      "n_params": null,
+      "fit_seconds": 0.3306427001953125,
+      "n": 872,
+      "accuracy": 0.6639908256880734,
+      "precision": 0.711484593837535,
+      "recall": 0.5720720720720721,
+      "f1": 0.634207240948814,
+      "confusion_matrix": [
+        [
+          325,
+          103
+        ],
+        [
+          190,
+          254
+        ]
+      ]
+    },
+    {
+      "family": "mlp",
+      "budget": 256,
+      "dev_size": 0,
+      "labels_seen": 256,
+      "seed": 2,
+      "n_iterations": 30,
+      "n_params": 1633,
+      "fit_seconds": 0.015889406204223633,
+      "n": 872,
+      "accuracy": 0.6410550458715596,
+      "precision": 0.752895752895753,
+      "recall": 0.4391891891891892,
+      "f1": 0.5547652916073968,
+      "confusion_matrix": [
+        [
+          364,
+          64
+        ],
+        [
+          249,
+          195
+        ]
+      ]
+    },
+    {
+      "family": "logistic_regression",
+      "budget": 256,
+      "dev_size": 0,
+      "labels_seen": 256,
+      "seed": 3,
+      "n_iterations": 61,
+      "n_params": 50,
+      "fit_seconds": 0.004862070083618164,
+      "n": 872,
+      "accuracy": 0.6639908256880734,
+      "precision": 0.6308492201039861,
+      "recall": 0.8198198198198198,
+      "f1": 0.713026444662096,
+      "confusion_matrix": [
+        [
+          215,
+          213
+        ],
+        [
+          80,
+          364
+        ]
+      ]
+    },
+    {
+      "family": "hist_gbt",
+      "budget": 256,
+      "dev_size": 0,
+      "labels_seen": 256,
+      "seed": 3,
+      "n_iterations": 98,
+      "n_params": null,
+      "fit_seconds": 0.16614127159118652,
+      "n": 872,
+      "accuracy": 0.658256880733945,
+      "precision": 0.6237288135593221,
+      "recall": 0.8288288288288288,
+      "f1": 0.7117988394584139,
+      "confusion_matrix": [
+        [
+          206,
+          222
+        ],
+        [
+          76,
+          368
+        ]
+      ]
+    },
+    {
+      "family": "mlp",
+      "budget": 256,
+      "dev_size": 0,
+      "labels_seen": 256,
+      "seed": 3,
+      "n_iterations": 23,
+      "n_params": 1633,
+      "fit_seconds": 0.013612031936645508,
+      "n": 872,
+      "accuracy": 0.5217889908256881,
+      "precision": 0.5157526254375729,
+      "recall": 0.9954954954954955,
+      "f1": 0.6794773251345119,
+      "confusion_matrix": [
+        [
+          13,
+          415
+        ],
+        [
+          2,
+          442
+        ]
+      ]
+    },
+    {
+      "family": "logistic_regression",
+      "budget": 256,
+      "dev_size": 0,
+      "labels_seen": 256,
+      "seed": 4,
+      "n_iterations": 79,
+      "n_params": 50,
+      "fit_seconds": 0.006506443023681641,
+      "n": 872,
+      "accuracy": 0.6823394495412844,
+      "precision": 0.6389351081530782,
+      "recall": 0.8648648648648649,
+      "f1": 0.7349282296650718,
+      "confusion_matrix": [
+        [
+          211,
+          217
+        ],
+        [
+          60,
+          384
+        ]
+      ]
+    },
+    {
+      "family": "hist_gbt",
+      "budget": 256,
+      "dev_size": 0,
+      "labels_seen": 256,
+      "seed": 4,
+      "n_iterations": 128,
+      "n_params": null,
+      "fit_seconds": 0.20042061805725098,
+      "n": 872,
+      "accuracy": 0.6788990825688074,
+      "precision": 0.657088122605364,
+      "recall": 0.7725225225225225,
+      "f1": 0.7101449275362319,
+      "confusion_matrix": [
+        [
+          249,
+          179
+        ],
+        [
+          101,
+          343
+        ]
+      ]
+    },
+    {
+      "family": "mlp",
+      "budget": 256,
+      "dev_size": 0,
+      "labels_seen": 256,
+      "seed": 4,
+      "n_iterations": 21,
+      "n_params": 1633,
+      "fit_seconds": 0.013033390045166016,
+      "n": 872,
+      "accuracy": 0.5114678899082569,
+      "precision": 0.5108958837772397,
+      "recall": 0.9504504504504504,
+      "f1": 0.6645669291338583,
+      "confusion_matrix": [
+        [
+          24,
+          404
+        ],
+        [
+          22,
+          422
+        ]
+      ]
+    },
+    {
+      "family": "logistic_regression",
+      "budget": 1000,
+      "dev_size": 0,
+      "labels_seen": 1000,
+      "seed": 0,
+      "n_iterations": 122,
+      "n_params": 50,
+      "fit_seconds": 0.01153707504272461,
+      "n": 872,
+      "accuracy": 0.694954128440367,
+      "precision": 0.6711538461538461,
+      "recall": 0.786036036036036,
+      "f1": 0.7240663900414938,
+      "confusion_matrix": [
+        [
+          257,
+          171
+        ],
+        [
+          95,
+          349
+        ]
+      ]
+    },
+    {
+      "family": "hist_gbt",
+      "budget": 1000,
+      "dev_size": 0,
+      "labels_seen": 1000,
+      "seed": 0,
+      "n_iterations": 60,
+      "n_params": null,
+      "fit_seconds": 0.17940068244934082,
+      "n": 872,
+      "accuracy": 0.6697247706422018,
+      "precision": 0.6460674157303371,
+      "recall": 0.777027027027027,
+      "f1": 0.7055214723926381,
+      "confusion_matrix": [
+        [
+          239,
+          189
+        ],
+        [
+          99,
+          345
+        ]
+      ]
+    },
+    {
+      "family": "mlp",
+      "budget": 1000,
+      "dev_size": 0,
+      "labels_seen": 1000,
+      "seed": 0,
+      "n_iterations": 12,
+      "n_params": 1633,
+      "fit_seconds": 0.015038728713989258,
+      "n": 872,
+      "accuracy": 0.5091743119266054,
+      "precision": 0.5091743119266054,
+      "recall": 1.0,
+      "f1": 0.6747720364741642,
+      "confusion_matrix": [
+        [
+          0,
+          428
+        ],
+        [
+          0,
+          444
+        ]
+      ]
+    },
+    {
+      "family": "logistic_regression",
+      "budget": 1000,
+      "dev_size": 0,
+      "labels_seen": 1000,
+      "seed": 1,
+      "n_iterations": 68,
+      "n_params": 50,
+      "fit_seconds": 0.007382631301879883,
+      "n": 872,
+      "accuracy": 0.6915137614678899,
+      "precision": 0.6605504587155964,
+      "recall": 0.8108108108108109,
+      "f1": 0.7280080889787665,
+      "confusion_matrix": [
+        [
+          243,
+          185
+        ],
+        [
+          84,
+          360
+        ]
+      ]
+    },
+    {
+      "family": "hist_gbt",
+      "budget": 1000,
+      "dev_size": 0,
+      "labels_seen": 1000,
+      "seed": 1,
+      "n_iterations": 68,
+      "n_params": null,
+      "fit_seconds": 0.16786408424377441,
+      "n": 872,
+      "accuracy": 0.6594036697247706,
+      "precision": 0.6329113924050633,
+      "recall": 0.7882882882882883,
+      "f1": 0.7021063189568706,
+      "confusion_matrix": [
+        [
+          225,
+          203
+        ],
+        [
+          94,
+          350
+        ]
+      ]
+    },
+    {
+      "family": "mlp",
+      "budget": 1000,
+      "dev_size": 0,
+      "labels_seen": 1000,
+      "seed": 1,
+      "n_iterations": 23,
+      "n_params": 1633,
+      "fit_seconds": 0.023391008377075195,
+      "n": 872,
+      "accuracy": 0.5848623853211009,
+      "precision": 0.5642633228840125,
+      "recall": 0.8108108108108109,
+      "f1": 0.6654343807763401,
+      "confusion_matrix": [
+        [
+          150,
+          278
+        ],
+        [
+          84,
+          360
+        ]
+      ]
+    },
+    {
+      "family": "logistic_regression",
+      "budget": 1000,
+      "dev_size": 0,
+      "labels_seen": 1000,
+      "seed": 2,
+      "n_iterations": 110,
+      "n_params": 50,
+      "fit_seconds": 0.011011838912963867,
+      "n": 872,
+      "accuracy": 0.680045871559633,
+      "precision": 0.6267281105990783,
+      "recall": 0.918918918918919,
+      "f1": 0.7452054794520548,
+      "confusion_matrix": [
+        [
+          185,
+          243
+        ],
+        [
+          36,
+          408
+        ]
+      ]
+    },
+    {
+      "family": "hist_gbt",
+      "budget": 1000,
+      "dev_size": 0,
+      "labels_seen": 1000,
+      "seed": 2,
+      "n_iterations": 46,
+      "n_params": null,
+      "fit_seconds": 0.16370391845703125,
+      "n": 872,
+      "accuracy": 0.6628440366972477,
+      "precision": 0.6254180602006689,
+      "recall": 0.8423423423423423,
+      "f1": 0.7178502879078695,
+      "confusion_matrix": [
+        [
+          204,
+          224
+        ],
+        [
+          70,
+          374
+        ]
+      ]
+    },
+    {
+      "family": "mlp",
+      "budget": 1000,
+      "dev_size": 0,
+      "labels_seen": 1000,
+      "seed": 2,
+      "n_iterations": 17,
+      "n_params": 1633,
+      "fit_seconds": 0.019436359405517578,
+      "n": 872,
+      "accuracy": 0.5126146788990825,
+      "precision": 0.5110336817653891,
+      "recall": 0.990990990990991,
+      "f1": 0.6743295019157088,
+      "confusion_matrix": [
+        [
+          7,
+          421
+        ],
+        [
+          4,
+          440
+        ]
+      ]
+    },
+    {
+      "family": "logistic_regression",
+      "budget": 1000,
+      "dev_size": 0,
+      "labels_seen": 1000,
+      "seed": 3,
+      "n_iterations": 82,
+      "n_params": 50,
+      "fit_seconds": 0.010381221771240234,
+      "n": 872,
+      "accuracy": 0.7110091743119266,
+      "precision": 0.6889763779527559,
+      "recall": 0.7882882882882883,
+      "f1": 0.7352941176470589,
+      "confusion_matrix": [
+        [
+          270,
+          158
+        ],
+        [
+          94,
+          350
+        ]
+      ]
+    },
+    {
+      "family": "hist_gbt",
+      "budget": 1000,
+      "dev_size": 0,
+      "labels_seen": 1000,
+      "seed": 3,
+      "n_iterations": 79,
+      "n_params": null,
+      "fit_seconds": 0.2383720874786377,
+      "n": 872,
+      "accuracy": 0.6869266055045872,
+      "precision": 0.7121588089330024,
+      "recall": 0.6463963963963963,
+      "f1": 0.6776859504132231,
+      "confusion_matrix": [
+        [
+          312,
+          116
+        ],
+        [
+          157,
+          287
+        ]
+      ]
+    },
+    {
+      "family": "mlp",
+      "budget": 1000,
+      "dev_size": 0,
+      "labels_seen": 1000,
+      "seed": 3,
+      "n_iterations": 12,
+      "n_params": 1633,
+      "fit_seconds": 0.014294862747192383,
+      "n": 872,
+      "accuracy": 0.5091743119266054,
+      "precision": 0.5091954022988506,
+      "recall": 0.9977477477477478,
+      "f1": 0.6742770167427702,
+      "confusion_matrix": [
+        [
+          1,
+          427
+        ],
+        [
+          1,
+          443
+        ]
+      ]
+    },
+    {
+      "family": "logistic_regression",
+      "budget": 1000,
+      "dev_size": 0,
+      "labels_seen": 1000,
+      "seed": 4,
+      "n_iterations": 82,
+      "n_params": 50,
+      "fit_seconds": 0.009240150451660156,
+      "n": 872,
+      "accuracy": 0.6972477064220184,
+      "precision": 0.6948051948051948,
+      "recall": 0.722972972972973,
+      "f1": 0.7086092715231788,
+      "confusion_matrix": [
+        [
+          287,
+          141
+        ],
+        [
+          123,
+          321
+        ]
+      ]
+    },
+    {
+      "family": "hist_gbt",
+      "budget": 1000,
+      "dev_size": 0,
+      "labels_seen": 1000,
+      "seed": 4,
+      "n_iterations": 81,
+      "n_params": null,
+      "fit_seconds": 0.30974841117858887,
+      "n": 872,
+      "accuracy": 0.6903669724770642,
+      "precision": 0.6977272727272728,
+      "recall": 0.6914414414414415,
+      "f1": 0.6945701357466063,
+      "confusion_matrix": [
+        [
+          295,
+          133
+        ],
+        [
+          137,
+          307
+        ]
+      ]
+    },
+    {
+      "family": "mlp",
+      "budget": 1000,
+      "dev_size": 0,
+      "labels_seen": 1000,
+      "seed": 4,
+      "n_iterations": 41,
+      "n_params": 1633,
+      "fit_seconds": 0.04554629325866699,
+      "n": 872,
+      "accuracy": 0.6422018348623854,
+      "precision": 0.6375,
+      "recall": 0.6891891891891891,
+      "f1": 0.6623376623376623,
+      "confusion_matrix": [
+        [
+          254,
+          174
+        ],
+        [
+          138,
+          306
+        ]
+      ]
+    },
+    {
+      "family": "logistic_regression",
+      "budget": 5000,
+      "dev_size": 0,
+      "labels_seen": 5000,
+      "seed": 0,
+      "n_iterations": 212,
+      "n_params": 50,
+      "fit_seconds": 0.05079293251037598,
+      "n": 872,
+      "accuracy": 0.7270642201834863,
+      "precision": 0.6900369003690037,
+      "recall": 0.8423423423423423,
+      "f1": 0.7586206896551724,
+      "confusion_matrix": [
+        [
+          260,
+          168
+        ],
+        [
+          70,
+          374
+        ]
+      ]
+    },
+    {
+      "family": "hist_gbt",
+      "budget": 5000,
+      "dev_size": 0,
+      "labels_seen": 5000,
+      "seed": 0,
+      "n_iterations": 125,
+      "n_params": null,
+      "fit_seconds": 0.2882046699523926,
+      "n": 872,
+      "accuracy": 0.7190366972477065,
+      "precision": 0.6895238095238095,
+      "recall": 0.8153153153153153,
+      "f1": 0.7471620227038184,
+      "confusion_matrix": [
+        [
+          265,
+          163
+        ],
+        [
+          82,
+          362
+        ]
+      ]
+    },
+    {
+      "family": "mlp",
+      "budget": 5000,
+      "dev_size": 0,
+      "labels_seen": 5000,
+      "seed": 0,
+      "n_iterations": 39,
+      "n_params": 1633,
+      "fit_seconds": 0.1487114429473877,
+      "n": 872,
+      "accuracy": 0.7029816513761468,
+      "precision": 0.689161554192229,
+      "recall": 0.759009009009009,
+      "f1": 0.722400857449089,
+      "confusion_matrix": [
+        [
+          276,
+          152
+        ],
+        [
+          107,
+          337
+        ]
+      ]
+    },
+    {
+      "family": "logistic_regression",
+      "budget": 5000,
+      "dev_size": 0,
+      "labels_seen": 5000,
+      "seed": 1,
+      "n_iterations": 232,
+      "n_params": 50,
+      "fit_seconds": 0.05549025535583496,
+      "n": 872,
+      "accuracy": 0.7201834862385321,
+      "precision": 0.6908396946564885,
+      "recall": 0.8153153153153153,
+      "f1": 0.7479338842975206,
+      "confusion_matrix": [
+        [
+          266,
+          162
+        ],
+        [
+          82,
+          362
+        ]
+      ]
+    },
+    {
+      "family": "hist_gbt",
+      "budget": 5000,
+      "dev_size": 0,
+      "labels_seen": 5000,
+      "seed": 1,
+      "n_iterations": 132,
+      "n_params": null,
+      "fit_seconds": 0.2789742946624756,
+      "n": 872,
+      "accuracy": 0.713302752293578,
+      "precision": 0.7320574162679426,
+      "recall": 0.6891891891891891,
+      "f1": 0.7099767981438515,
+      "confusion_matrix": [
+        [
+          316,
+          112
+        ],
+        [
+          138,
+          306
+        ]
+      ]
+    },
+    {
+      "family": "mlp",
+      "budget": 5000,
+      "dev_size": 0,
+      "labels_seen": 5000,
+      "seed": 1,
+      "n_iterations": 32,
+      "n_params": 1633,
+      "fit_seconds": 0.11472940444946289,
+      "n": 872,
+      "accuracy": 0.694954128440367,
+      "precision": 0.6995515695067265,
+      "recall": 0.7027027027027027,
+      "f1": 0.701123595505618,
+      "confusion_matrix": [
+        [
+          294,
+          134
+        ],
+        [
+          132,
+          312
+        ]
+      ]
+    },
+    {
+      "family": "logistic_regression",
+      "budget": 5000,
+      "dev_size": 0,
+      "labels_seen": 5000,
+      "seed": 2,
+      "n_iterations": 197,
+      "n_params": 50,
+      "fit_seconds": 0.04604315757751465,
+      "n": 872,
+      "accuracy": 0.7178899082568807,
+      "precision": 0.6787003610108303,
+      "recall": 0.8468468468468469,
+      "f1": 0.7535070140280561,
+      "confusion_matrix": [
+        [
+          250,
+          178
+        ],
+        [
+          68,
+          376
+        ]
+      ]
+    },
+    {
+      "family": "hist_gbt",
+      "budget": 5000,
+      "dev_size": 0,
+      "labels_seen": 5000,
+      "seed": 2,
+      "n_iterations": 121,
+      "n_params": null,
+      "fit_seconds": 0.304645299911499,
+      "n": 872,
+      "accuracy": 0.7110091743119266,
+      "precision": 0.6696113074204947,
+      "recall": 0.8536036036036037,
+      "f1": 0.7504950495049505,
+      "confusion_matrix": [
+        [
+          241,
+          187
+        ],
+        [
+          65,
+          379
+        ]
+      ]
+    },
+    {
+      "family": "mlp",
+      "budget": 5000,
+      "dev_size": 0,
+      "labels_seen": 5000,
+      "seed": 2,
+      "n_iterations": 41,
+      "n_params": 1633,
+      "fit_seconds": 0.15344953536987305,
+      "n": 872,
+      "accuracy": 0.6961009174311926,
+      "precision": 0.6924731182795699,
+      "recall": 0.7252252252252253,
+      "f1": 0.7084708470847084,
+      "confusion_matrix": [
+        [
+          285,
+          143
+        ],
+        [
+          122,
+          322
+        ]
+      ]
+    },
+    {
+      "family": "logistic_regression",
+      "budget": 5000,
+      "dev_size": 0,
+      "labels_seen": 5000,
+      "seed": 3,
+      "n_iterations": 173,
+      "n_params": 50,
+      "fit_seconds": 0.0405580997467041,
+      "n": 872,
+      "accuracy": 0.716743119266055,
+      "precision": 0.6787658802177858,
+      "recall": 0.8423423423423423,
+      "f1": 0.7517587939698492,
+      "confusion_matrix": [
+        [
+          251,
+          177
+        ],
+        [
+          70,
+          374
+        ]
+      ]
+    },
+    {
+      "family": "hist_gbt",
+      "budget": 5000,
+      "dev_size": 0,
+      "labels_seen": 5000,
+      "seed": 3,
+      "n_iterations": 109,
+      "n_params": null,
+      "fit_seconds": 0.2849416732788086,
+      "n": 872,
+      "accuracy": 0.698394495412844,
+      "precision": 0.6630630630630631,
+      "recall": 0.8288288288288288,
+      "f1": 0.7367367367367368,
+      "confusion_matrix": [
+        [
+          241,
+          187
+        ],
+        [
+          76,
+          368
+        ]
+      ]
+    },
+    {
+      "family": "mlp",
+      "budget": 5000,
+      "dev_size": 0,
+      "labels_seen": 5000,
+      "seed": 3,
+      "n_iterations": 38,
+      "n_params": 1633,
+      "fit_seconds": 0.1351172924041748,
+      "n": 872,
+      "accuracy": 0.7018348623853211,
+      "precision": 0.6729323308270677,
+      "recall": 0.8063063063063063,
+      "f1": 0.7336065573770492,
+      "confusion_matrix": [
+        [
+          254,
+          174
+        ],
+        [
+          86,
+          358
+        ]
+      ]
+    },
+    {
+      "family": "logistic_regression",
+      "budget": 5000,
+      "dev_size": 0,
+      "labels_seen": 5000,
+      "seed": 4,
+      "n_iterations": 283,
+      "n_params": 50,
+      "fit_seconds": 0.06524538993835449,
+      "n": 872,
+      "accuracy": 0.7190366972477065,
+      "precision": 0.6812386156648452,
+      "recall": 0.8423423423423423,
+      "f1": 0.7532729103726082,
+      "confusion_matrix": [
+        [
+          253,
+          175
+        ],
+        [
+          70,
+          374
+        ]
+      ]
+    },
+    {
+      "family": "hist_gbt",
+      "budget": 5000,
+      "dev_size": 0,
+      "labels_seen": 5000,
+      "seed": 4,
+      "n_iterations": 155,
+      "n_params": null,
+      "fit_seconds": 0.31984567642211914,
+      "n": 872,
+      "accuracy": 0.6995412844036697,
+      "precision": 0.6642599277978339,
+      "recall": 0.8288288288288288,
+      "f1": 0.7374749498997996,
+      "confusion_matrix": [
+        [
+          242,
+          186
+        ],
+        [
+          76,
+          368
+        ]
+      ]
+    },
+    {
+      "family": "mlp",
+      "budget": 5000,
+      "dev_size": 0,
+      "labels_seen": 5000,
+      "seed": 4,
+      "n_iterations": 38,
+      "n_params": 1633,
+      "fit_seconds": 0.147965669631958,
+      "n": 872,
+      "accuracy": 0.694954128440367,
+      "precision": 0.7109004739336493,
+      "recall": 0.6756756756756757,
+      "f1": 0.6928406466512702,
+      "confusion_matrix": [
+        [
+          306,
+          122
+        ],
+        [
+          144,
+          300
+        ]
+      ]
+    },
+    {
+      "family": "logistic_regression",
+      "budget": 64049,
+      "dev_size": 0,
+      "labels_seen": 64049,
+      "seed": 0,
+      "n_iterations": 224,
+      "n_params": 50,
+      "fit_seconds": 4.989190578460693,
+      "n": 872,
+      "accuracy": 0.7270642201834863,
+      "precision": 0.6921641791044776,
+      "recall": 0.8355855855855856,
+      "f1": 0.7571428571428571,
+      "confusion_matrix": [
+        [
+          263,
+          165
+        ],
+        [
+          73,
+          371
+        ]
+      ]
+    },
+    {
+      "family": "hist_gbt",
+      "budget": 64049,
+      "dev_size": 0,
+      "labels_seen": 64049,
+      "seed": 0,
+      "n_iterations": 772,
+      "n_params": null,
+      "fit_seconds": 2.445051670074463,
+      "n": 872,
+      "accuracy": 0.7362385321100917,
+      "precision": 0.6959706959706959,
+      "recall": 0.8558558558558559,
+      "f1": 0.7676767676767676,
+      "confusion_matrix": [
+        [
+          262,
+          166
+        ],
+        [
+          64,
+          380
+        ]
+      ]
+    },
+    {
+      "family": "mlp",
+      "budget": 64049,
+      "dev_size": 0,
+      "labels_seen": 64049,
+      "seed": 0,
+      "n_iterations": 30,
+      "n_params": 1633,
+      "fit_seconds": 2.1028008460998535,
+      "n": 872,
+      "accuracy": 0.7236238532110092,
+      "precision": 0.6809269162210339,
+      "recall": 0.8603603603603603,
+      "f1": 0.7601990049751244,
+      "confusion_matrix": [
+        [
+          249,
+          179
+        ],
+        [
+          62,
+          382
+        ]
+      ]
+    },
+    {
+      "family": "logistic_regression",
+      "budget": 64049,
+      "dev_size": 0,
+      "labels_seen": 64049,
+      "seed": 1,
+      "n_iterations": 404,
+      "n_params": 50,
+      "fit_seconds": 11.906559228897095,
+      "n": 872,
+      "accuracy": 0.7282110091743119,
+      "precision": 0.6913123844731978,
+      "recall": 0.8423423423423423,
+      "f1": 0.7593908629441625,
+      "confusion_matrix": [
+        [
+          261,
+          167
+        ],
+        [
+          70,
+          374
+        ]
+      ]
+    },
+    {
+      "family": "hist_gbt",
+      "budget": 64049,
+      "dev_size": 0,
+      "labels_seen": 64049,
+      "seed": 1,
+      "n_iterations": 344,
+      "n_params": null,
+      "fit_seconds": 1.1914973258972168,
+      "n": 872,
+      "accuracy": 0.7350917431192661,
+      "precision": 0.6912028725314183,
+      "recall": 0.8671171171171171,
+      "f1": 0.7692307692307693,
+      "confusion_matrix": [
+        [
+          256,
+          172
+        ],
+        [
+          59,
+          385
+        ]
+      ]
+    },
+    {
+      "family": "mlp",
+      "budget": 64049,
+      "dev_size": 0,
+      "labels_seen": 64049,
+      "seed": 1,
+      "n_iterations": 26,
+      "n_params": 1633,
+      "fit_seconds": 1.5870320796966553,
+      "n": 872,
+      "accuracy": 0.7385321100917431,
+      "precision": 0.7045454545454546,
+      "recall": 0.8378378378378378,
+      "f1": 0.7654320987654321,
+      "confusion_matrix": [
+        [
+          272,
+          156
+        ],
+        [
+          72,
+          372
+        ]
+      ]
+    },
+    {
+      "family": "logistic_regression",
+      "budget": 64049,
+      "dev_size": 0,
+      "labels_seen": 64049,
+      "seed": 2,
+      "n_iterations": 445,
+      "n_params": 50,
+      "fit_seconds": 8.573867082595825,
+      "n": 872,
+      "accuracy": 0.7293577981651376,
+      "precision": 0.6933085501858736,
+      "recall": 0.8400900900900901,
+      "f1": 0.7596741344195519,
+      "confusion_matrix": [
+        [
+          263,
+          165
+        ],
+        [
+          71,
+          373
+        ]
+      ]
+    },
+    {
+      "family": "hist_gbt",
+      "budget": 64049,
+      "dev_size": 0,
+      "labels_seen": 64049,
+      "seed": 2,
+      "n_iterations": 903,
+      "n_params": null,
+      "fit_seconds": 2.814443349838257,
+      "n": 872,
+      "accuracy": 0.7373853211009175,
+      "precision": 0.6987060998151571,
+      "recall": 0.8513513513513513,
+      "f1": 0.76751269035533,
+      "confusion_matrix": [
+        [
+          265,
+          163
+        ],
+        [
+          66,
+          378
+        ]
+      ]
+    },
+    {
+      "family": "mlp",
+      "budget": 64049,
+      "dev_size": 0,
+      "labels_seen": 64049,
+      "seed": 2,
+      "n_iterations": 30,
+      "n_params": 1633,
+      "fit_seconds": 2.2045156955718994,
+      "n": 872,
+      "accuracy": 0.7305045871559633,
+      "precision": 0.6924493554327809,
+      "recall": 0.8468468468468469,
+      "f1": 0.7619047619047619,
+      "confusion_matrix": [
+        [
+          261,
+          167
+        ],
+        [
+          68,
+          376
+        ]
+      ]
+    },
+    {
+      "family": "logistic_regression",
+      "budget": 64049,
+      "dev_size": 0,
+      "labels_seen": 64049,
+      "seed": 3,
+      "n_iterations": 537,
+      "n_params": 50,
+      "fit_seconds": 12.841103553771973,
+      "n": 872,
+      "accuracy": 0.7270642201834863,
+      "precision": 0.6914498141263941,
+      "recall": 0.8378378378378378,
+      "f1": 0.7576374745417516,
+      "confusion_matrix": [
+        [
+          262,
+          166
+        ],
+        [
+          72,
+          372
+        ]
+      ]
+    },
+    {
+      "family": "hist_gbt",
+      "budget": 64049,
+      "dev_size": 0,
+      "labels_seen": 64049,
+      "seed": 3,
+      "n_iterations": 535,
+      "n_params": null,
+      "fit_seconds": 2.249008893966675,
+      "n": 872,
+      "accuracy": 0.7327981651376146,
+      "precision": 0.691470054446461,
+      "recall": 0.8581081081081081,
+      "f1": 0.7658291457286432,
+      "confusion_matrix": [
+        [
+          258,
+          170
+        ],
+        [
+          63,
+          381
+        ]
+      ]
+    },
+    {
+      "family": "mlp",
+      "budget": 64049,
+      "dev_size": 0,
+      "labels_seen": 64049,
+      "seed": 3,
+      "n_iterations": 19,
+      "n_params": 1633,
+      "fit_seconds": 1.2647089958190918,
+      "n": 872,
+      "accuracy": 0.7259174311926605,
+      "precision": 0.711340206185567,
+      "recall": 0.777027027027027,
+      "f1": 0.7427341227125942,
+      "confusion_matrix": [
+        [
+          288,
+          140
+        ],
+        [
+          99,
+          345
+        ]
+      ]
+    },
+    {
+      "family": "logistic_regression",
+      "budget": 64049,
+      "dev_size": 0,
+      "labels_seen": 64049,
+      "seed": 4,
+      "n_iterations": 303,
+      "n_params": 50,
+      "fit_seconds": 6.234302997589111,
+      "n": 872,
+      "accuracy": 0.7282110091743119,
+      "precision": 0.6934579439252336,
+      "recall": 0.8355855855855856,
+      "f1": 0.7579162410623085,
+      "confusion_matrix": [
+        [
+          264,
+          164
+        ],
+        [
+          73,
+          371
+        ]
+      ]
+    },
+    {
+      "family": "hist_gbt",
+      "budget": 64049,
+      "dev_size": 0,
+      "labels_seen": 64049,
+      "seed": 4,
+      "n_iterations": 437,
+      "n_params": null,
+      "fit_seconds": 1.4412317276000977,
+      "n": 872,
+      "accuracy": 0.7305045871559633,
+      "precision": 0.6882882882882883,
+      "recall": 0.8603603603603603,
+      "f1": 0.7647647647647647,
+      "confusion_matrix": [
+        [
+          255,
+          173
+        ],
+        [
+          62,
+          382
+        ]
+      ]
+    },
+    {
+      "family": "mlp",
+      "budget": 64049,
+      "dev_size": 0,
+      "labels_seen": 64049,
+      "seed": 4,
+      "n_iterations": 43,
+      "n_params": 1633,
+      "fit_seconds": 3.123678207397461,
+      "n": 872,
+      "accuracy": 0.7327981651376146,
+      "precision": 0.7024952015355086,
+      "recall": 0.8243243243243243,
+      "f1": 0.7585492227979275,
+      "confusion_matrix": [
+        [
+          273,
+          155
+        ],
+        [
+          78,
+          366
+        ]
+      ]
+    }
+  ]
+}
