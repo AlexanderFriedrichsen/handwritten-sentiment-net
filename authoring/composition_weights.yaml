@@ -1,0 +1,223 @@
+# Hand-authored weights for composition layer 1, fusion (composition
+# layer 2), and the output layer. See authoring/RATIONALE.md's
+# "Composition/fusion/output design" entry for the full reasoning behind
+# every choice below; this file has that reasoning condensed into
+# per-unit `note` fields but is not a substitute for reading the entry.
+#
+# Every number here comes from reasoning about the encoder's 49-dim
+# output and each unit's intended job -- never from running the net,
+# never from a label (rules 1 and 4 in RATIONALE.md's integrity section).
+# scripts/compile_weights.py reads this file mechanically and adds no
+# judgment of its own, same relationship as expand_lexicon.py has to
+# lexicon_families.py.
+#
+# -----------------------------------------------------------------------
+# Input layout: the 49 numbers handnet/encode.py emits, canonical index
+# assignment fixed in RATIONALE.md (nothing before that entry pinned a
+# concrete order):
+#
+#   6 pooled blocks x 7 columns = indices 0-41, one block per
+#   clause x bucket combination, block base = 7 * block_number:
+#     block 0  pre_plain      indices  0- 6
+#     block 1  pre_negated    indices  7-13
+#     block 2  pre_modified   indices 14-20
+#     block 3  post_plain     indices 21-27
+#     block 4  post_negated   indices 28-34
+#     block 5  post_modified  indices 35-41
+#
+#   column order within each block's 7 (matches embedding table E):
+#     +0 valence              +1 negation_sensitivity
+#     +2 is_negator (DEAD)    +3 is_contrast (DEAD)
+#     +4 degree_modifier      +5 certainty
+#     +6 content_negator
+#
+#   then 7 sentence-level scalars at indices 42-48:
+#     42 has_contrast   43 pre_len_frac   44 post_len_frac
+#     45 num_negators   46 has_exclaim    47 has_question
+#     48 sentence_length
+#
+# Two of the per-block columns are redefined from a raw independently-
+# pooled average to a per-token product computed by the encoder BEFORE
+# pooling (the pooling-formula fix in RATIONALE.md -- this is what makes
+# negated_sentiment_* and modified_sentiment_* below a plain 1.0
+# pass-through rather than something composition layer 1 cannot compute):
+#   index  8 (pre_negated.negation_sensitivity)  = avg(-sensitivity_i * valence_i), pre negated-bucket tokens
+#   index 29 (post_negated.negation_sensitivity) = avg(-sensitivity_i * valence_i), post negated-bucket tokens
+#   index 18 (pre_modified.degree_modifier)      = avg(valence_i * degree_modifier_{i-1}), pre modified-bucket tokens
+#   index 39 (post_modified.degree_modifier)     = avg(valence_i * degree_modifier_{i-1}), post modified-bucket tokens
+#
+# Dead inputs -- always exactly 0 in every pooled vector for every
+# sentence, by construction (negators/contrast markers are structurally
+# excluded from all 6 buckets, see encode step 5): indices
+# 2, 3, 9, 10, 16, 17, 23, 24, 30, 31, 37, 38 (the is_negator/is_contrast
+# column of each of the 6 blocks). No unit below weights any of these.
+#
+# Every bias is 0.0: a nonzero bias would need either a label-derived
+# base rate (rule 1) or empirical calibration against actual model
+# output (rule 4) to justify any specific value, and no such value is
+# derivable from reasoning alone.
+# -----------------------------------------------------------------------
+
+composition_layer_1:
+  # Each unit is a sparse {index: weight} map over the 49 inputs
+  # (indices not listed are implicitly 0.0) plus a bias. The 12 units
+  # and their intended meaning are fixed in RATIONALE.md's 18:18Z entry.
+
+  plain_sentiment_pre:
+    weights: {0: 1.0}
+    bias: 0.0
+    note: >
+      Direct pass-through of the pre-clause plain-bucket average
+      valence, already bounded to [-3,3] by the embedding table's own
+      range. tanh's compression near the extremes is accepted as-is,
+      not compensated for with a scale factor, since any such factor
+      would be an arbitrary choice with no reasoning behind its specific
+      value.
+
+  negated_sentiment_pre:
+    weights: {8: 1.0}
+    bias: 0.0
+    note: >
+      Reads the redefined index 8 directly -- the encoder has already
+      computed avg(-sensitivity * valence) per pre negated-bucket token,
+      so this unit needs no further arithmetic, only a pass-through.
+
+  modified_sentiment_pre:
+    weights: {18: 1.0}
+    bias: 0.0
+    note: Same pass-through pattern, reading the redefined index 18.
+
+  plain_sentiment_post:
+    weights: {21: 1.0}
+    bias: 0.0
+    note: Mirrors plain_sentiment_pre for the post-contrast clause.
+
+  negated_sentiment_post:
+    weights: {29: 1.0}
+    bias: 0.0
+    note: Mirrors negated_sentiment_pre, reading redefined index 29.
+
+  modified_sentiment_post:
+    weights: {39: 1.0}
+    bias: 0.0
+    note: Mirrors modified_sentiment_pre, reading redefined index 39.
+
+  semantic_negation_signal:
+    weights: {6: 0.5, 13: 0.5, 20: 0.5, 27: 0.5, 34: 0.5, 41: 0.5, 45: 0.2}
+    bias: 0.0
+    note: >
+      Pools content_negator presence (a [0,1] fraction per bucket,
+      weighted 0.5 each -- a fully content-negator-saturated bucket is
+      already a strong signal on its own) across all 6 buckets, plus a
+      small share of the raw num_negators count (weight 0.2, chosen so
+      a typical 0-3 count stays in a comparable range to the fraction
+      terms). A secondary cue distinct from the direct sentiment units,
+      since content_negators get no structural negation-propagation of
+      their own in v1 (structural_words.yaml).
+
+  certainty_signal:
+    weights: {5: 1.0, 12: 1.0, 19: 1.0, 26: 1.0, 33: 1.0, 40: 1.0}
+    bias: 0.0
+    note: >
+      certainty means the same thing regardless of which bucket/clause
+      it lands in (independent of valence and degree_modifier by
+      design), so every occurrence across all 6 buckets counts equally
+      and additively.
+
+  emphasis_signal:
+    weights: {4: 0.3, 11: 0.3, 18: 0.3, 25: 0.3, 32: 0.3, 39: 0.3, 46: 0.3}
+    bias: 0.0
+    note: >
+      Uniform small weight across every degree_modifier-touching
+      position (the 4 untouched raw columns, the 2 redefined
+      valence*degree_modifier products also read by the
+      modified_sentiment units above, so this reuses rather than
+      duplicates information) plus has_exclaim. KNOWN LIMITATION: true
+      emphasis is a magnitude concept -- amplify whichever sign is
+      already present -- which is a multiplicative, sign-agnostic
+      operation a linear unit cannot express; this is a signed,
+      imperfect proxy, not a magnitude, logged honestly rather than
+      overclaimed (RATIONALE.md).
+
+  negation_density_signal:
+    weights: {45: 1.0, 48: -0.05}
+    bias: 0.0
+    note: >
+      Approximates negator-count-per-length without true division (not
+      linearly expressible): positive weight on the raw negator count,
+      small negative weight on sentence_length so the same count reads
+      as denser in a short sentence than a long one. -0.05 chosen so
+      roughly 20 tokens of length offsets one negator's worth of signal
+      -- a reasoned, comparable-order-of-magnitude choice, not a tuned
+      one.
+
+  question_discount_signal:
+    weights: {47: 1.0}
+    bias: 0.0
+    note: >
+      KNOWN LIMITATION: a question mark structurally signals "this is
+      not an assertion," which should discount (scale down) whatever
+      else the sentence says -- a multiplicative, sign-agnostic
+      operation this fixed linear-fusion architecture cannot express
+      (same class of limitation as emphasis_signal). v1 reads only the
+      has_question flag here; the fusion weight below applies a small
+      constant directional nudge instead of true discounting.
+
+  pre_post_length_signal:
+    weights: {43: -1.0, 44: 1.0}
+    bias: 0.0
+    note: >
+      post_len_frac minus pre_len_frac: how much of the sentence's
+      length sits in the post-contrast clause relative to the
+      pre-contrast clause. Always -1 before tanh when there is no
+      contrast marker (pre_len_frac=1, post_len_frac=0 then), so this
+      unit is informative only when has_contrast=1, by construction.
+
+# raw_score = pre_weight*(f1*h1 + f2*h2 + f3*h3)
+#           + post_weight*(f4*h4 + f5*h5 + f6*h6)
+#           + f7*h7 + f8*h8 + f9*h9 + f10*h10 + f11*h11 + f12*h12
+# pre_weight  = 1 - has_contrast * (1 - alpha)
+# post_weight = has_contrast * beta
+fusion:
+  alpha: 0.4
+  beta: 1.6
+  weights:
+    plain_sentiment_pre: 1.0        # f1
+    negated_sentiment_pre: 1.0      # f2
+    modified_sentiment_pre: 1.0     # f3
+    plain_sentiment_post: 1.0       # f4
+    negated_sentiment_post: 1.0     # f5
+    modified_sentiment_post: 1.0    # f6
+    semantic_negation_signal: 0.6   # f7
+    certainty_signal: 0.25          # f8
+    emphasis_signal: 0.3            # f9
+    negation_density_signal: 0.2    # f10
+    question_discount_signal: -0.15 # f11
+    pre_post_length_signal: 0.15    # f12
+  note: >
+    f1-f6 = 1.0: the 6 direct pooled-sentiment units are the primary
+    signal and pass through fusion at full weight, modulated only by the
+    pre/post contrast gate (alpha/beta), never independently damped.
+    f7-f12 each <= 0.6 in magnitude so the 6 secondary "signal" units can
+    modestly shift raw_score but cannot dominate the direct pooled-
+    sentiment contribution -- a reasoned ordering of importance
+    (sentiment content first, discourse/register cues second), not a
+    tuned ratio. alpha=0.4/beta=1.6 are symmetric around 1.0 (1-0.6 and
+    1+0.6), so "X but Y" damps X by the same step it amplifies Y -- the
+    simplest symmetric choice consistent with the report's "post-clause
+    dominates" claim (3.1) without picking an arbitrary asymmetric split
+    only justifiable by having seen what it does to real sentences.
+
+output:
+  output_scale: 1.0
+  output_bias: 0.0
+  note: >
+    logit = raw_score * output_scale + output_bias, p = sigmoid(logit).
+    Identity scale and zero bias are the only values derivable from
+    reasoning alone: any other scale would rescale raw_score against a
+    target spread knowable only from labels or from running the net on
+    real text (rules 1 and 4); any nonzero bias would encode a prior
+    class base rate, itself a label-derived statistic (rule 1). These
+    are not placeholders awaiting later calibration -- they are the
+    frozen values, and the two-phase protocol (PROTOCOL.md) never
+    revisits them.
